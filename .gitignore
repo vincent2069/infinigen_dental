@@ -95,3 +95,4 @@ MUJOCO_LOG.TXT
 mjcf/
 urdf/
 usd/
+.codex/

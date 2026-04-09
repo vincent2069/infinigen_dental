@@ -1,0 +1,110 @@
+# Dental hospital scene configuration for Infinigen
+#
+# Example:
+# blender -b -P infinigen_examples/generate_dental_hospital.py -- \
+#     --output_folder /path/to/output \
+#     --seed 0 \
+#     --task coarse mesh_save \
+#     --configs dental_hospital
+
+include 'infinigen_examples/configs_nature/base.gin'
+include 'infinigen_examples/configs_nature/performance/fast_terrain_assets.gin'
+
+# Large dental hospital layout
+# Default uses a more regular rectangular clinic block:
+# public front zone -> short transition buffer -> central support zone -> double-loaded clinic strip.
+# When the clinic count is high, rectangular mode automatically switches to a
+# dual-corridor stacked layout so the clinic zone becomes three rows instead of
+# one extra-long two-row bar; at larger scales it upgrades again to a
+# three-corridor / four-row clinic block.
+dental_hospital_floorplan.num_clinics = 12
+dental_hospital_floorplan.vip_ratio = 0.25
+dental_hospital_floorplan.corridor_width = 3.6
+dental_hospital_floorplan.multi_corridor_threshold = 22
+dental_hospital_floorplan.four_row_threshold = 28
+# Clinic size can be controlled either by width/depth or directly by area.
+# When *_clinic_area is set, width/depth are derived from *_clinic_aspect_ratio.
+# Standard clinics: ~23 sqm, aspect ratio ~0.8 -> about 4.3m x 5.4m.
+dental_hospital_floorplan.standard_clinic_area = 23.0
+dental_hospital_floorplan.standard_clinic_aspect_ratio = 0.8
+# VIP clinics: ~34.8 sqm, aspect ratio ~0.84 -> about 5.4m x 6.4m.
+dental_hospital_floorplan.vip_clinic_area = 34.8
+dental_hospital_floorplan.vip_clinic_aspect_ratio = 0.84
+dental_hospital_floorplan.vip_cluster_side = 'split'
+dental_hospital_floorplan.plan_form = 'rectangular'
+dental_hospital_floorplan.vip_at_far_end = True
+dental_hospital_floorplan.lobby_width = 11.0
+dental_hospital_floorplan.waiting_depth = 7.8
+dental_hospital_floorplan.reception_depth = 5.8
+dental_hospital_floorplan.public_zone_depth = 6.9
+dental_hospital_floorplan.reception_width_ratio = 0.26
+dental_hospital_floorplan.support_room_width = 5.8
+dental_hospital_floorplan.wing_standard_ratio = 0.0
+dental_hospital_floorplan.front_buffer_length = 0.0
+dental_hospital_floorplan.public_corridor_entry_count = 1
+dental_hospital_floorplan.public_zone_open_width = 6.0
+dental_hospital_floorplan.corridor_connector_length = 4.0
+dental_hospital_floorplan.examination_depth = 5.2
+dental_hospital_floorplan.treatment_depth = 5.8
+
+# Solver configuration
+compose_dental_hospital.solve_steps_large = 320
+compose_dental_hospital.solve_steps_medium = 180
+compose_dental_hospital.solve_steps_small = 60
+
+SimulatedAnnealingSolver.initial_temp = 3
+SimulatedAnnealingSolver.final_temp = 0.001
+SimulatedAnnealingSolver.finetune_pct = 0.15
+SimulatedAnnealingSolver.max_invalid_candidates = 5
+
+RoomConstants.n_stories = 1
+
+# Camera setup tuned for split clinic wings and medium-sized clinics
+camera.camera_pose_proposal.altitude = ("clip_gaussian", 1.6, 0.25, 1.2, 2.1)
+camera.camera_pose_proposal.pitch = ("clip_gaussian", 82, 14, 55, 98)
+camera.camera_pose_proposal.focal_length = 20
+
+camera.spawn_camera_rigs.n_camera_rigs = 1
+camera.spawn_camera_rigs.camera_rig_config = [
+    {'loc': (0, 0, 0), 'rot_euler': (0, 0, 0)},
+    {'loc': (0.075, 0, 0), 'rot_euler': (0, 0, 0)}
+]
+
+animate_trajectory.max_step_tries = 50
+animate_trajectory.max_full_retries = 24
+compute_base_views.min_candidates_ratio = 10
+compute_base_views.max_tries = 80000
+compose_dental_hospital.animate_cameras_enabled = False
+
+group_collections.config = [
+    {'name': 'assets',         'hide_viewport': True,  'hide_render': True},
+    {'name': 'placeholders',   'hide_viewport': True, 'hide_render': True},
+    {'name': 'unique_assets',  'hide_viewport': False,  'hide_render': False},
+]
+
+configure_render_cycles.exposure = 3
+configure_render_cycles.denoise = False
+configure_render_cycles.adaptive_threshold = 0.005
+
+nishita_lighting.strength = 0.25
+nishita_lighting.sun_elevation = ("clip_gaussian", 40, 25, 6, 70)
+
+# Keep the scene purely indoor-focused.
+compose_dental_hospital.nature_backdrop_enabled = False
+compose_dental_hospital.floating_objs_enabled = False
+compose_dental_hospital.invisible_room_ceilings_enabled = False
+compose_dental_hospital.overhead_cam_enabled = False
+compose_dental_hospital.hide_other_rooms_enabled = False
+compose_dental_hospital.enable_ocmesh_room = False
+
+# Keep the dental config structurally aligned with base_indoors.gin so
+# future stage toggles do not fail on missing compose_dental_hospital.* keys.
+compose_dental_hospital.lights_off_chance = 0.2
+compose_dental_hospital.skirting_floor_chance = 0.7
+compose_dental_hospital.skirting_ceiling_chance = 0.4
+compose_dental_hospital.room_pillars_chance = 0.1
+compose_dental_hospital.num_floating = ('discrete_uniform', 15, 25)
+compose_dental_hospital.norm_floating_size = True
+compose_dental_hospital.enable_collision_floating = False
+compose_dental_hospital.enable_collision_solved = False
+compose_dental_hospital.near_distance = 80

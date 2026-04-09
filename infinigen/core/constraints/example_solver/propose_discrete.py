@@ -127,9 +127,16 @@ def propose_addition_bound_gen(
         def sample_name():
             return f"{np.random.randint(1e6):04d}_{gen_class.__name__}"
 
-        target_name = next(
-            sample_name() for _ in range(100) if sample_name() not in curr.objs
-        )
+        target_name = None
+        for _ in range(100):
+            cand_name = sample_name()
+            if cand_name not in curr.objs:
+                target_name = cand_name
+                break
+        if target_name is None:
+            raise RuntimeError(
+                f"Failed to sample a unique target name for {gen_class.__name__}"
+            )
 
         yield moves.Addition(
             names=[target_name],  # decided later

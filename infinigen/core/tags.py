@@ -55,6 +55,15 @@ class Semantics(EnumTag):
     Restroom = "restroom"
     FactoryOffice = "factory-office"
 
+    # Hospital room types
+    HospitalWaitingRoom = "hospital-waiting-room"
+    HospitalReception = "hospital-reception"
+    HospitalClinic = "hospital-clinic"
+    HospitalVIPClinic = "hospital-vip-clinic"
+    HospitalCorridor = "hospital-corridor"
+    HospitalTreatmentRoom = "hospital-treatment-room"
+    HospitalExaminationRoom = "hospital-examination-room"
+
     Root = "root"
     New = "new"
     RoomNode = "room-node"
@@ -130,6 +139,21 @@ class Semantics(EnumTag):
     NoRotation = "no-rotation"
     NoCollision = "no-collision"
     NoChildren = "no-children"
+
+    # Hospital-specific semantics
+    WaitingBench = "waiting-bench"
+    WaitingChair = "waiting-chair"
+    CoffeeTable = "coffee-table"
+    ReceptionDesk = "reception-desk"
+    DoctorDesk = "doctor-desk"
+    DoctorChair = "doctor-chair"
+    PatientChair = "patient-chair"
+    ExaminationTable = "examination-table"
+    MedicalCabinet = "medical-cabinet"
+    MedicalShelf = "medical-shelf"
+    MedicalEquipment = "medical-equipment"
+    DeskItem = "desk-item"
+    DecorPlant = "decor-plant"
 
     def __str__(self):
         return f"{self.__class__.__name__}({self.value})"

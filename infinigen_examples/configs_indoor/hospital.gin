@@ -1,0 +1,65 @@
+# Hospital scene configuration for Infinigen
+# 大医院场景配置文件
+#
+# 使用方式 (Usage):
+# blender -b -P infinigen_examples/generate_hospital.py -- \
+#     --output_folder /path/to/output \
+#     --seed 0 \
+#     --task coarse mesh_save \
+#     --configs hospital
+
+include 'infinigen_examples/configs_nature/base.gin'
+include 'infinigen_examples/configs_nature/performance/fast_terrain_assets.gin'
+
+# Hospital room constraints configuration
+# 医院房间约束配置
+hospital_room_constraints.num_clinics = 15  # Total clinics (普通 + VIP 诊室总数)
+hospital_room_constraints.num_vip_clinics = 3  # VIP clinics (VIP 诊室数量)
+hospital_room_constraints.has_large_waiting_room = True  # Large waiting area (大型等候区)
+
+# Solver configuration
+# 求解器配置
+SimulatedAnnealingSolver.initial_temp = 3
+SimulatedAnnealingSolver.final_temp = 0.001
+SimulatedAnnealingSolver.finetune_pct = 0.15
+SimulatedAnnealingSolver.max_invalid_candidates = 5
+
+RoomConstants.n_stories = 1
+
+# Camera configuration for hospital interior
+# 医院内部相机配置
+camera.camera_pose_proposal.altitude = ("clip_gaussian", 1.6, 0.3, 1.0, 2.0)
+camera.camera_pose_proposal.pitch = ("clip_gaussian", 80, 20, 50, 100)
+camera.camera_pose_proposal.focal_length = 20
+
+camera.spawn_camera_rigs.n_camera_rigs = 1
+camera.spawn_camera_rigs.camera_rig_config = [
+    {'loc': (0, 0, 0), 'rot_euler': (0, 0, 0)},
+    {'loc': (0.075, 0, 0), 'rot_euler': (0, 0, 0)}
+]
+
+# Animation configuration
+# 动画配置
+animate_trajectory.max_step_tries = 40
+animate_trajectory.max_full_retries = 20
+compute_base_views.min_candidates_ratio = 10
+compute_base_views.max_tries = 50000
+
+# Collection configuration
+# 集合配置
+group_collections.config = [
+    {'name': 'assets',         'hide_viewport': True,  'hide_render': True},
+    {'name': 'placeholders',   'hide_viewport': True, 'hide_render': True},
+    {'name': 'unique_assets',  'hide_viewport': False,  'hide_render': False},
+]
+
+# Render configuration
+# 渲染配置
+configure_render_cycles.exposure = 3
+configure_render_cycles.denoise = False
+configure_render_cycles.adaptive_threshold = 0.005
+
+# Lighting configuration
+# 照明配置
+nishita_lighting.strength = 0.25
+nishita_lighting.sun_elevation = ("clip_gaussian", 40, 25, 6, 70)

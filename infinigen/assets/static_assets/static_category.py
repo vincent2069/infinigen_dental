@@ -95,3 +95,15 @@ StaticTableFactory = static_category_factory(
 StaticShelfFactory = static_category_factory(
     "infinigen/assets/static_assets/source/Shelf", tag_support=True, z_dim=2
 )
+
+# Hospital assets
+StaticBenchFactory = static_category_factory("infinigen/assets/static_assets/source/Bench")
+StaticCabinetFactory = static_category_factory("infinigen/assets/static_assets/source/Cabinet")
+StaticShelfFactory = static_category_factory("infinigen/assets/static_assets/source/Shelf", tag_support=True, z_dim=2)
+StaticChairFactory = static_category_factory("infinigen/assets/static_assets/source/Chair")
+StaticDentalunitFactory = static_category_factory("infinigen/assets/static_assets/source/Dentalunit")
+StaticFronttableFactory = static_category_factory("infinigen/assets/static_assets/source/Fronttable")
+StaticInternchairFactory = static_category_factory("infinigen/assets/static_assets/source/Internchair")
+StaticRectangleFactory = static_category_factory("infinigen/assets/static_assets/source/Rectangle")
+StaticSofaFactory = static_category_factory("infinigen/assets/static_assets/source/Sofa")
+StaticTableFactory = static_category_factory("infinigen/assets/static_assets/source/Table")

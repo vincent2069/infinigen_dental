@@ -163,7 +163,7 @@ def compose_indoors(output_folder: Path, scene_seed: int, **overrides):
 
     stages, consgraph, limits = restrict_solving(stages, consgraph)
 
-    if overrides.get("restrict_single_supported_roomtype", False):
+    if overrides.get("restrict_single_supported_roomtype", False): 
         restrict_parent_rooms = {
             np.random.choice(
                 [

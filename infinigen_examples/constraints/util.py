@@ -23,6 +23,14 @@ room_types = {
     t.Semantics.DiningRoom,
     t.Semantics.Utility,
     t.Semantics.StaircaseRoom,
+    # Hospital room types
+    t.Semantics.HospitalWaitingRoom,
+    t.Semantics.HospitalReception,
+    t.Semantics.HospitalClinic,
+    t.Semantics.HospitalVIPClinic,
+    t.Semantics.HospitalCorridor,
+    t.Semantics.HospitalTreatmentRoom,
+    t.Semantics.HospitalExaminationRoom,
 }
 
 all_sides = {t.Subpart.Bottom, t.Subpart.Top, t.Subpart.Front, t.Subpart.Back}

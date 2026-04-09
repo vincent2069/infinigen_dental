@@ -152,6 +152,20 @@ class Domain:
         assert isinstance(self.tags, set)
         assert isinstance(self.relations, list)
 
+    def __deepcopy__(self, memo):
+        if id(self) in memo:
+            return memo[id(self)]
+
+        # Domain trees are acyclic by construction, and tags / relation objects
+        # are treated as immutable. A custom deepcopy avoids Python's generic
+        # deepcopy path, which can intermittently fail on some dynamically
+        # generated tag payloads (for example generator-class tags) during solver
+        # domain substitution.
+        new = self.__class__(tags=set(self.tags), relations=[])
+        memo[id(self)] = new
+        new.relations = [(rel, copy.deepcopy(dom, memo)) for rel, dom in self.relations]
+        return new
+
     def implies(self, other: Domain):
         return t.implies(self.tags, other.tags) and all(
             any(reldom_implies(rel, orel) for rel in self.relations)

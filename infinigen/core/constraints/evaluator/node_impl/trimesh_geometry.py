@@ -163,9 +163,26 @@ def any_touching(
         )
     elif isinstance(b, str):
         T, g = scene.graph[b]
-        hit, names, contacts = col.in_collision_single(
-            scene.geometry[g], transform=T, return_data=True, return_names=True
-        )
+        try:
+            hit, names, contacts = col.in_collision_single(
+                scene.geometry[g], transform=T, return_data=True, return_names=True
+            )
+        except ValueError as e:
+            if "cannot delete array elements" not in str(e):
+                raise
+            # Some trimesh/fcl combinations choke on in_collision_single when the
+            # queried mesh carries tracked array wrappers. Fall back to a
+            # one-object CollisionManager built from the already cached FCL
+            # object on the scene geometry, which avoids remeshing the target.
+            logger.warning(
+                "any_touching fallback for %s due to trimesh/fcl ValueError: %s",
+                b,
+                e,
+            )
+            col2 = iu.col_from_subset(scene, [b], b_tags, bvh_cache)
+            hit, names, contacts = col.in_collision_other(
+                col2, return_names=True, return_data=True
+            )
     elif isinstance(b, list):
         col2 = iu.col_from_subset(scene, b, b_tags, bvh_cache)
         hit, names, contacts = col.in_collision_other(
