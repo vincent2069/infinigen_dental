@@ -21,6 +21,7 @@ def static_category_factory(
     y_dim: float = None,
     z_dim: float = None,
     rotation_euler: tuple[float] = None,
+    extensions: tuple[str, ...] | None = None,
 ) -> StaticAssetFactory:
     """
     Create a factory for external asset import.
@@ -38,13 +39,21 @@ def static_category_factory(
                 self.asset_dir = path_to_assets
                 self.x_dim, self.y_dim, self.z_dim = x_dim, y_dim, z_dim
                 self.rotation_euler = rotation_euler
+                self.extensions = (
+                    tuple(ext.lower().lstrip(".") for ext in extensions)
+                    if extensions is not None
+                    else tuple(self.import_map.keys())
+                )
                 asset_files = [
                     f
                     for f in os.listdir(self.asset_dir)
-                    if f.lower().endswith(tuple(self.import_map.keys()))
+                    if f.rsplit(".", 1)[-1].lower() in self.extensions
                 ]
                 if not asset_files or len(asset_files) == 0:
-                    raise ValueError(f"No valid asset files found in {self.asset_dir}")
+                    raise ValueError(
+                        f"No valid asset files found in {self.asset_dir} "
+                        f"for extensions {self.extensions}"
+                    )
                 self.asset_file = random.choice(asset_files)
 
         def create_asset(self, **params) -> bpy.types.Object:
@@ -85,25 +94,46 @@ def static_category_factory(
     return StaticCategoryFactory
 
 
-# Create factory instances for different categories
-StaticSofaFactory = static_category_factory(
-    "infinigen/assets/static_assets/source/Sofa"
+# Source-only dental / hospital assets
+StaticBenchFactory = static_category_factory(
+    "infinigen/assets/static_assets/source/Bench",
+    extensions=("fbx",),
 )
-StaticTableFactory = static_category_factory(
-    "infinigen/assets/static_assets/source/Table"
+StaticCabinetFactory = static_category_factory(
+    "infinigen/assets/static_assets/source/Cabinet",
+    extensions=("fbx",),
 )
 StaticShelfFactory = static_category_factory(
-    "infinigen/assets/static_assets/source/Shelf", tag_support=True, z_dim=2
+    "infinigen/assets/static_assets/source/Shelf",
+    tag_support=True,
+    z_dim=2,
+    extensions=("fbx",),
 )
-
-# Hospital assets
-StaticBenchFactory = static_category_factory("infinigen/assets/static_assets/source/Bench")
-StaticCabinetFactory = static_category_factory("infinigen/assets/static_assets/source/Cabinet")
-StaticShelfFactory = static_category_factory("infinigen/assets/static_assets/source/Shelf", tag_support=True, z_dim=2)
-StaticChairFactory = static_category_factory("infinigen/assets/static_assets/source/Chair")
-StaticDentalunitFactory = static_category_factory("infinigen/assets/static_assets/source/Dentalunit")
-StaticFronttableFactory = static_category_factory("infinigen/assets/static_assets/source/Fronttable")
-StaticInternchairFactory = static_category_factory("infinigen/assets/static_assets/source/Internchair")
-StaticRectangleFactory = static_category_factory("infinigen/assets/static_assets/source/Rectangle")
-StaticSofaFactory = static_category_factory("infinigen/assets/static_assets/source/Sofa")
-StaticTableFactory = static_category_factory("infinigen/assets/static_assets/source/Table")
+StaticChairFactory = static_category_factory(
+    "infinigen/assets/static_assets/source/Chair",
+    extensions=("fbx",),
+)
+StaticDentalunitFactory = static_category_factory(
+    "infinigen/assets/static_assets/source/Dentalunit",
+    extensions=("fbx",),
+)
+StaticFronttableFactory = static_category_factory(
+    "infinigen/assets/static_assets/source/Fronttable",
+    extensions=("fbx",),
+)
+StaticInternchairFactory = static_category_factory(
+    "infinigen/assets/static_assets/source/Internchair",
+    extensions=("fbx",),
+)
+StaticRectangleFactory = static_category_factory(
+    "infinigen/assets/static_assets/source/Rectangle",
+    extensions=("fbx",),
+)
+StaticSofaFactory = static_category_factory(
+    "infinigen/assets/static_assets/source/Sofa",
+    extensions=("fbx",),
+)
+StaticTableFactory = static_category_factory(
+    "infinigen/assets/static_assets/source/Table",
+    extensions=("fbx",),
+)

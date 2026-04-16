@@ -262,11 +262,14 @@ def dental_hospital_floorplan(
             corridor_y1: float,
             above: bool,
             prefix: str,
+            width_overrides: dict[int, float] | None = None,
         ) -> float:
             nonlocal clinic_idx, vip_idx
             x_cursor = x_start
             for i, semantic in enumerate(room_types):
                 width, depth = room_dims(semantic)
+                if width_overrides is not None and i in width_overrides:
+                    width = float(width_overrides[i])
                 x0, x1 = x_cursor, x_cursor + width
 
                 if semantic == Semantics.HospitalVIPClinic:
@@ -344,8 +347,17 @@ def dental_hospital_floorplan(
                 x_cursor = x1
             return x_cursor
 
-        def sequence_width(room_types: list[Semantics]) -> float:
-            return sum(room_dims(semantic)[0] for semantic in room_types)
+        def sequence_width(
+            room_types: list[Semantics],
+            width_overrides: dict[int, float] | None = None,
+        ) -> float:
+            total = 0.0
+            for i, semantic in enumerate(room_types):
+                width, _ = room_dims(semantic)
+                if width_overrides is not None and i in width_overrides:
+                    width = float(width_overrides[i])
+                total += width
+            return total
 
         def build_clinic_sequence(
             standard_count: int,
@@ -918,7 +930,15 @@ def dental_hospital_floorplan(
                     )
             else:
                 prefix_standard_count = 0
-                clinic_start_x = public_block_width
+                public_block_width = min(
+                    public_block_width,
+                    max(
+                        7.2,
+                        support_room_width + 1.2,
+                        standard_clinic_width + 2.4,
+                    ),
+                )
+                clinic_start_x = public_block_width + front_buffer_length
                 upper_types = build_rectangular_sequence(
                     top_standard_total,
                     Semantics.HospitalExaminationRoom,
@@ -944,89 +964,71 @@ def dental_hospital_floorplan(
                 )
                 public_y0 = -bottom_depth
                 public_y1 = corridor_width + top_depth
+                waiting_y0 = -min(waiting_depth, bottom_depth)
+                waiting_y1 = 0.0
+                reception_y0 = 0.0
+                reception_y1 = corridor_width
 
-                if public_corridor_entry_count <= 1:
-                    rooms[waiting_name] = {
-                        "shape": shapely.box(0, public_y0, waiting_width, public_y1),
-                    }
-                    rooms[reception_name] = {
-                        "shape": shapely.box(
-                            reception_x0, public_y0, public_block_width, public_y1
-                        ),
-                    }
+                rooms[waiting_name] = {
+                    "shape": shapely.box(0, waiting_y0, public_block_width, waiting_y1),
+                }
+                rooms[reception_name] = {
+                    "shape": shapely.box(
+                        0, reception_y0, public_block_width, reception_y1
+                    ),
+                }
 
-                    entrance["main_entrance"] = {
-                        "shape": _horizontal_segment(
-                            0, waiting_width, public_y0, entrance_width
+                entrance["main_entrance"] = {
+                    "shape": _horizontal_segment(
+                        0, public_block_width, waiting_y0, entrance_width
+                    ),
+                }
+                opens["open_public_zone"] = {
+                    "shape": _horizontal_segment(
+                        0, public_block_width, waiting_y1, public_zone_open_width
+                    ),
+                }
+                doors["door_public_to_corridor_main"] = {
+                    "shape": LineString(
+                        [
+                            (public_block_width, reception_y0 + 0.05),
+                            (public_block_width, reception_y1 - 0.05),
+                        ]
+                    ),
+                }
+                add_room_windows("window_waiting", 0, public_block_width, waiting_y0)
+                add_room_windows("window_reception", 0, public_block_width, reception_y1)
+
+                upper_width = sequence_width(upper_types)
+                lower_width = sequence_width(lower_types)
+                upper_width_overrides = None
+                lower_width_overrides = None
+                if upper_width < lower_width and upper_types:
+                    support_idx = next(
+                        (
+                            i
+                            for i, semantic in enumerate(upper_types)
+                            if semantic == Semantics.HospitalExaminationRoom
                         ),
-                    }
-                    opens["open_public_zone"] = {
-                        "shape": _vertical_segment(
-                            public_y0,
-                            public_y1,
-                            waiting_width,
-                            public_zone_open_width,
-                        ),
-                    }
-                    doors["door_public_to_corridor_main"] = {
-                        "shape": LineString(
-                            [
-                                (public_block_width, 0.05),
-                                (public_block_width, corridor_width - 0.05),
-                            ]
-                        ),
-                    }
-                    add_room_windows("window_waiting", 0, waiting_width, public_y0)
-                    add_room_windows(
-                        "window_reception",
-                        reception_x0,
-                        public_block_width,
-                        public_y1,
+                        None,
                     )
-                else:
-                    public_split_y = corridor_width / 2
-
-                    rooms[waiting_name] = {
-                        "shape": shapely.box(
-                            0, public_y0, public_block_width, public_split_y
+                    if support_idx is not None:
+                        upper_width_overrides = {
+                            support_idx: support_room_width + (lower_width - upper_width)
+                        }
+                elif lower_width < upper_width and lower_types:
+                    support_idx = next(
+                        (
+                            i
+                            for i, semantic in enumerate(lower_types)
+                            if semantic == Semantics.HospitalTreatmentRoom
                         ),
-                    }
-                    rooms[reception_name] = {
-                        "shape": shapely.box(
-                            0, public_split_y, public_block_width, public_y1
-                        ),
-                    }
-
-                    entrance["main_entrance"] = {
-                        "shape": _horizontal_segment(
-                            0, public_block_width, public_y0, entrance_width
-                        ),
-                    }
-                    opens["open_public_zone"] = {
-                        "shape": _horizontal_segment(
-                            0, public_block_width, public_split_y, public_zone_open_width
-                        ),
-                    }
-                    doors["door_waiting_to_corridor"] = {
-                        "shape": LineString(
-                            [
-                                (public_block_width, 0.05),
-                                (public_block_width, public_split_y - 0.05),
-                            ]
-                        ),
-                    }
-                    doors["door_reception_to_corridor"] = {
-                        "shape": LineString(
-                            [
-                                (public_block_width, public_split_y + 0.05),
-                                (public_block_width, corridor_width - 0.05),
-                            ]
-                        ),
-                    }
-                    add_room_windows("window_waiting", 0, public_block_width, public_y0)
-                    add_room_windows(
-                        "window_reception", 0, public_block_width, public_y1
+                        None,
                     )
+                    if support_idx is not None:
+                        lower_width_overrides = {
+                            support_idx: support_room_width + (upper_width - lower_width)
+                        }
 
                 upper_end = add_room_sequence(
                     upper_types,
@@ -1035,6 +1037,7 @@ def dental_hospital_floorplan(
                     corridor_width,
                     above=True,
                     prefix="rect_top",
+                    width_overrides=upper_width_overrides,
                 )
                 lower_end = add_room_sequence(
                     lower_types,
@@ -1043,10 +1046,11 @@ def dental_hospital_floorplan(
                     corridor_width,
                     above=False,
                     prefix="rect_bottom",
+                    width_overrides=lower_width_overrides,
                 )
 
                 corridor_shape = shapely.box(
-                    clinic_start_x,
+                    public_block_width,
                     0,
                     max(
                         upper_end, lower_end, clinic_start_x + corridor_connector_length
