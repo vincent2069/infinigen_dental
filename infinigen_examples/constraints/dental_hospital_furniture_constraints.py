@@ -212,9 +212,6 @@ def dental_hospital_furniture_constraints():
             + cl.accessibility_cost(dental_unit.related_to(r), r, dist=1.0).minimize(
                 weight=5
             )
-            + cl.accessibility_cost(
-                dental_unit.related_to(r), furniture.related_to(r), dist=1.2
-            ).minimize(weight=4)
             + (
                 (cabinet.related_to(r).count() + wall_table.related_to(r).count())
                 / r.volume(dims=2)
@@ -236,8 +233,12 @@ def dental_hospital_furniture_constraints():
             )
             + cabinet.related_to(r).mean(
                 lambda c: (
-                    cl.angle_alignment_cost(c, r, cu.walltags).minimize(weight=1)
-                    + c.distance(r, cu.walltags).maximize(weight=1)
+                    # Cabinets are populated into real static FBX assets before
+                    # solve_medium via AssetPlaceholderForChildren. Those assets
+                    # usually only carry support-surface tags (e.g. {'top'}) and
+                    # do not provide a reliable Front plane, so
+                    # angle_alignment_cost(c, ...) can crash in get_axis().
+                    c.distance(r, cu.walltags).maximize(weight=1)
                     + c.distance(dental_unit.related_to(r))
                     .hinge(1.4, 3.4)
                     .maximize(weight=3)
@@ -286,9 +287,6 @@ def dental_hospital_furniture_constraints():
             + cl.accessibility_cost(dental_unit.related_to(r), r, dist=1.1).minimize(
                 weight=5
             )
-            + cl.accessibility_cost(
-                dental_unit.related_to(r), furniture.related_to(r), dist=1.2
-            ).minimize(weight=4)
             + (
                 (cabinet.related_to(r).count() + wall_table.related_to(r).count())
                 / r.volume(dims=2)
@@ -334,8 +332,7 @@ def dental_hospital_furniture_constraints():
             )
             + cabinet.related_to(r).mean(
                 lambda c: (
-                    cl.angle_alignment_cost(c, r, cu.walltags).minimize(weight=1)
-                    + c.distance(dental_unit.related_to(r))
+                    c.distance(dental_unit.related_to(r))
                     .hinge(1.6, 3.8)
                     .maximize(weight=3)
                     + c.distance(wall_table.related_to(r))
@@ -433,9 +430,6 @@ def dental_hospital_furniture_constraints():
                 (
                     ceiling_light.related_to(r).count() / r.volume(dims=2)
                 ).hinge(density_lo, density_hi).minimize(weight=7)
-                + cl.angle_alignment_cost(
-                    ceiling_light.related_to(r), r, cu.walltags
-                ).minimize(weight=1)
                 + ceiling_light.related_to(r)
                 .mean(
                     lambda l: (
