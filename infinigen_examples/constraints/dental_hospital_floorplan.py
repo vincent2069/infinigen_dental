@@ -404,6 +404,21 @@ def dental_hospital_floorplan(
                 total += width
             return total
 
+        def choose_width_override_target(
+            room_types: list[Semantics],
+        ) -> int | None:
+            preferred_order = (
+                Semantics.HospitalVIPClinic,
+                Semantics.HospitalClinic,
+                Semantics.HospitalExaminationRoom,
+                Semantics.HospitalTreatmentRoom,
+            )
+            for semantic in preferred_order:
+                for i in range(len(room_types) - 1, -1, -1):
+                    if room_types[i] == semantic:
+                        return i
+            return None
+
         def build_clinic_sequence(
             standard_count: int,
             support_semantic: Semantics,
@@ -1055,30 +1070,18 @@ def dental_hospital_floorplan(
                 upper_width_overrides = None
                 lower_width_overrides = None
                 if upper_width < lower_width and upper_types:
-                    support_idx = next(
-                        (
-                            i
-                            for i, semantic in enumerate(upper_types)
-                            if semantic == Semantics.HospitalExaminationRoom
-                        ),
-                        None,
-                    )
-                    if support_idx is not None:
+                    target_idx = choose_width_override_target(upper_types)
+                    if target_idx is not None:
                         upper_width_overrides = {
-                            support_idx: support_room_width + (lower_width - upper_width)
+                            target_idx: room_dims(upper_types[target_idx])[0]
+                            + (lower_width - upper_width)
                         }
                 elif lower_width < upper_width and lower_types:
-                    support_idx = next(
-                        (
-                            i
-                            for i, semantic in enumerate(lower_types)
-                            if semantic == Semantics.HospitalTreatmentRoom
-                        ),
-                        None,
-                    )
-                    if support_idx is not None:
+                    target_idx = choose_width_override_target(lower_types)
+                    if target_idx is not None:
                         lower_width_overrides = {
-                            support_idx: support_room_width + (upper_width - lower_width)
+                            target_idx: room_dims(lower_types[target_idx])[0]
+                            + (upper_width - lower_width)
                         }
 
                 upper_end = add_room_sequence(

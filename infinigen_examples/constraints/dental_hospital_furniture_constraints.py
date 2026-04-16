@@ -107,6 +107,7 @@ def dental_hospital_furniture_constraints():
                     + b.distance(bench.related_to(r))
                     .hinge(0.45, 0.95)
                     .maximize(weight=8)
+                    + cl.focus_score(b, openings.related_to(r)).minimize(weight=8)
                     + b.distance(doors.related_to(r))
                     .hinge(1.3, 4.2)
                     .maximize(weight=4)
@@ -221,6 +222,7 @@ def dental_hospital_furniture_constraints():
                     + cl.angle_alignment_cost(t, wall_table.related_to(r)).minimize(
                         weight=4
                     )
+                    + cl.focus_score(t, dental_unit.related_to(r)).minimize(weight=6)
                     + t.distance(wall_table.related_to(r))
                     .hinge(0.2, 0.75)
                     .maximize(weight=4)
@@ -242,7 +244,7 @@ def dental_hospital_furniture_constraints():
             * washbar.related_to(r).count().equals(1)
             * staff_chair.related_to(r).count().in_range(1, 3)
             * cabinet.related_to(r).count().in_range(0, 1)
-            * wall_table.related_to(r).count().in_range(1, 2)
+            * wall_table.related_to(r).count().in_range(2, 3)
             * sofa.related_to(r).count().equals(1)
             * lounge_table.related_to(r).count().equals(1)
             * chair.related_to(r).count().equals(0)
@@ -323,6 +325,7 @@ def dental_hospital_furniture_constraints():
                     + cl.angle_alignment_cost(t, wall_table.related_to(r)).minimize(
                         weight=4
                     )
+                    + cl.focus_score(t, dental_unit.related_to(r)).minimize(weight=7)
                     + t.distance(wall_table.related_to(r))
                     .hinge(0.2, 0.8)
                     .maximize(weight=4)
@@ -345,7 +348,7 @@ def dental_hospital_furniture_constraints():
             sink.related_to(r).count().in_range(0, 1)
             * cabinet.related_to(r).count().equals(1)
             * chair.related_to(r).count().in_range(2, 3)
-            * wall_table.related_to(r).count().equals(2)
+            * wall_table.related_to(r).count().equals(3)
         )
     )
     constraints["sterilization_room"] = sterilization_room.all(
@@ -353,7 +356,7 @@ def dental_hospital_furniture_constraints():
             sink.related_to(r).count().equals(1)
             * cabinet.related_to(r).count().in_range(1, 2)
             * staff_chair.related_to(r).count().in_range(0, 1)
-            * wall_table.related_to(r).count().in_range(2, 3)
+            * wall_table.related_to(r).count().equals(3)
         )
     )
 
@@ -366,10 +369,11 @@ def dental_hospital_furniture_constraints():
                     + cl.angle_alignment_cost(t, wall_table.related_to(r)).minimize(
                         weight=5
                     )
+                    + cl.focus_score(t, doors.related_to(r)).minimize(weight=7)
                     + t.distance(wall_table.related_to(r))
-                    .hinge(0.18, 0.55)
-                    .maximize(weight=5)
-                    + t.distance(doors.related_to(r)).hinge(0.8, 2.2).maximize(weight=2)
+                    .hinge(0.12, 0.38)
+                    .maximize(weight=7)
+                    + t.distance(doors.related_to(r)).hinge(0.8, 1.8).maximize(weight=2)
                 )
             )
             + chair.related_to(r).mean(
@@ -395,10 +399,11 @@ def dental_hospital_furniture_constraints():
                     + cl.angle_alignment_cost(t, wall_table.related_to(r)).minimize(
                         weight=5
                     )
+                    + cl.focus_score(t, doors.related_to(r)).minimize(weight=7)
                     + t.distance(wall_table.related_to(r))
-                    .hinge(0.18, 0.55)
-                    .maximize(weight=5)
-                    + t.distance(doors.related_to(r)).hinge(0.8, 2.0).maximize(weight=2)
+                    .hinge(0.12, 0.38)
+                    .maximize(weight=7)
+                    + t.distance(doors.related_to(r)).hinge(0.8, 1.8).maximize(weight=2)
                 )
             )
             + sink.related_to(r).mean(

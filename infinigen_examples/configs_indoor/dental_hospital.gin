@@ -27,10 +27,10 @@ dental_hospital_floorplan.four_row_threshold = 28
 # Standard clinics: about 16 sqm, keeps most rooms within 12-20 sqm.
 dental_hospital_floorplan.standard_clinic_area = 16.0
 dental_hospital_floorplan.standard_clinic_aspect_ratio = 0.8
-# VIP clinics: about 22 sqm, but extend mainly along corridor direction instead
+# VIP clinics: about 24 sqm, but extend mainly along corridor direction instead
 # of becoming deeper, so the overall outline stays regular/rectangular.
-dental_hospital_floorplan.vip_clinic_area = 22.0
-dental_hospital_floorplan.vip_clinic_aspect_ratio = 1.1
+dental_hospital_floorplan.vip_clinic_area = 24.0
+dental_hospital_floorplan.vip_clinic_aspect_ratio = 1.2
 dental_hospital_floorplan.vip_cluster_side = 'top'
 dental_hospital_floorplan.plan_form = 'rectangular'
 dental_hospital_floorplan.vip_at_far_end = True
@@ -39,14 +39,14 @@ dental_hospital_floorplan.waiting_depth = 6.6
 dental_hospital_floorplan.reception_depth = 5.0
 dental_hospital_floorplan.public_zone_depth = 6.4
 dental_hospital_floorplan.reception_width_ratio = 0.26
-dental_hospital_floorplan.support_room_width = 4.8
+dental_hospital_floorplan.support_room_width = 4.4
 dental_hospital_floorplan.wing_standard_ratio = 0.0
 dental_hospital_floorplan.front_buffer_length = 0.0
 dental_hospital_floorplan.public_corridor_entry_count = 1
 dental_hospital_floorplan.public_zone_open_width = 6.0
 dental_hospital_floorplan.corridor_connector_length = 4.0
-dental_hospital_floorplan.examination_depth = 4.5
-dental_hospital_floorplan.treatment_depth = 4.5
+dental_hospital_floorplan.examination_depth = 4.2
+dental_hospital_floorplan.treatment_depth = 4.2
 
 # Solver configuration
 compose_dental_hospital.solve_steps_large = 320
