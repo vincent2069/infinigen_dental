@@ -60,6 +60,8 @@ class Semantics(EnumTag):
     HospitalReception = "hospital-reception"
     HospitalClinic = "hospital-clinic"
     HospitalVIPClinic = "hospital-vip-clinic"
+    HospitalVIPLounge = "hospital-vip-lounge"
+    HospitalVIPTreatment = "hospital-vip-treatment"
     HospitalCorridor = "hospital-corridor"
     HospitalTreatmentRoom = "hospital-treatment-room"
     HospitalExaminationRoom = "hospital-examination-room"

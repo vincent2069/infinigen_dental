@@ -47,7 +47,8 @@ def dental_hospital_furniture_constraints():
     waiting_room = rooms[Semantics.HospitalWaitingRoom]
     reception_room = rooms[Semantics.HospitalReception]
     clinic_room = rooms[Semantics.HospitalClinic]
-    vip_clinic = rooms[Semantics.HospitalVIPClinic]
+    vip_lounge = rooms[Semantics.HospitalVIPLounge]
+    vip_treatment = rooms[Semantics.HospitalVIPTreatment]
     corridor = rooms[Semantics.HospitalCorridor]
     sterilization_room = rooms[Semantics.HospitalTreatmentRoom]
     consultation_room = rooms[Semantics.HospitalExaminationRoom]
@@ -107,7 +108,6 @@ def dental_hospital_furniture_constraints():
                     + b.distance(bench.related_to(r))
                     .hinge(0.45, 0.95)
                     .maximize(weight=8)
-                    + cl.focus_score(b, openings.related_to(r)).minimize(weight=8)
                     + b.distance(doors.related_to(r))
                     .hinge(1.3, 4.2)
                     .maximize(weight=4)
@@ -115,6 +115,9 @@ def dental_hospital_furniture_constraints():
                     .hinge(0.9, 3.0)
                     .maximize(weight=7)
                     + cl.angle_alignment_cost(b, r, cu.walltags).minimize(weight=6)
+                    + cl.angle_alignment_cost(b, openings.related_to(r)).minimize(
+                        weight=10
+                    )
                     + cl.angle_alignment_cost(b, bench.related_to(r)).minimize(weight=8)
                     + cl.accessibility_cost(b, r, dist=0.65).minimize(weight=2)
                 )
@@ -236,44 +239,86 @@ def dental_hospital_furniture_constraints():
 
     # endregion
 
-    # region VIP clinics with lounge area
+    # region VIP suite split into lounge + treatment
 
-    constraints["vip_clinic"] = vip_clinic.all(
+    constraints["vip_lounge"] = vip_lounge.all(
+        lambda r: (
+            sofa.related_to(r).count().equals(1)
+            * lounge_table.related_to(r).count().equals(1)
+            * chair.related_to(r).count().equals(0)
+            * dental_unit.related_to(r).count().equals(0)
+            * washbar.related_to(r).count().equals(0)
+            * wall_table.related_to(r).count().equals(0)
+            * staff_chair.related_to(r).count().in_range(0, 1)
+            * cabinet.related_to(r).count().in_range(0, 1)
+        )
+    )
+    constraints["vip_treatment"] = vip_treatment.all(
         lambda r: (
             dental_unit.related_to(r).count().equals(1)
             * washbar.related_to(r).count().equals(1)
             * staff_chair.related_to(r).count().in_range(1, 3)
             * cabinet.related_to(r).count().in_range(0, 1)
             * wall_table.related_to(r).count().in_range(2, 3)
-            * sofa.related_to(r).count().equals(1)
-            * lounge_table.related_to(r).count().equals(1)
+            * sofa.related_to(r).count().equals(0)
+            * lounge_table.related_to(r).count().equals(0)
             * chair.related_to(r).count().equals(0)
         )
     )
-    score_terms["vip_clinic"] = vip_clinic.mean(
+    score_terms["vip_lounge"] = vip_lounge.mean(
+        lambda r: (
+            sofa.related_to(r).mean(
+                lambda s: (
+                    s.distance(r, cu.walltags).hinge(0.08, 0.22).minimize(weight=4)
+                    + cl.angle_alignment_cost(s, r, cu.walltags).minimize(weight=2)
+                    + s.distance(doors.related_to(r)).hinge(0.5, 1.4).minimize(weight=8)
+                    + cl.focus_score(s, doors.related_to(r)).minimize(weight=5)
+                )
+            )
+            + lounge_table.related_to(r).mean(
+                lambda t: (
+                    cl.angle_alignment_cost(t, r, cu.walltags).minimize(weight=1)
+                    + t.distance(sofa.related_to(r)).hinge(0.45, 1.0).maximize(weight=4)
+                    + t.distance(doors.related_to(r)).hinge(0.6, 1.4).minimize(weight=4)
+                )
+            )
+            + staff_chair.related_to(r).mean(
+                lambda s: s.distance(sofa.related_to(r)).hinge(0.4, 1.0).maximize(
+                    weight=1
+                )
+            )
+            + cabinet.related_to(r).mean(
+                lambda c: (
+                    c.distance(r, cu.walltags).hinge(0.08, 0.22).minimize(weight=2)
+                    + c.distance(sofa.related_to(r)).hinge(0.8, 1.8).maximize(weight=1)
+                )
+            )
+        )
+    )
+    score_terms["vip_treatment"] = vip_treatment.mean(
         lambda r: (
             cl.center_stable_surface_dist(dental_unit.related_to(r)).minimize(weight=6)
             + dental_unit.related_to(r)
             .distance(r, cu.walltags)
-            .hinge(0.7, 1.8)
-            .maximize(weight=3)
+            .hinge(0.8, 1.8)
+            .maximize(weight=5)
             + cl.angle_alignment_cost(dental_unit.related_to(r), r, cu.walltags).minimize(
-                weight=7
+                weight=9
             )
             + cl.accessibility_cost(dental_unit.related_to(r), r, dist=1.1).minimize(
                 weight=8
             )
             + dental_unit.related_to(r)
             .distance(doors.related_to(r))
-            .hinge(2.3, 5.0)
-            .maximize(weight=12)
+            .hinge(1.2, 2.4)
+            .maximize(weight=9)
             + staff_chair.related_to(r).mean(
                 lambda s: (
                     s.distance(dental_unit.related_to(r))
                     .hinge(0.45, 1.0)
-                    .maximize(weight=4)
+                    .maximize(weight=5)
                     + s.distance(wall_table.related_to(r))
-                    .hinge(0.35, 1.2)
+                    .hinge(0.3, 1.0)
                     .maximize(weight=4)
                     + s.distance(doors.related_to(r)).hinge(1.0, 2.8).maximize(weight=2)
                 )
@@ -284,56 +329,34 @@ def dental_hospital_furniture_constraints():
                     + cl.angle_alignment_cost(s, r, cu.walltags).minimize(weight=2)
                     + s.distance(doors.related_to(r)).hinge(1.5, 4.0).maximize(weight=4)
                     + s.distance(dental_unit.related_to(r))
-                    .hinge(1.2, 2.8)
-                    .maximize(weight=4)
-                )
-            )
-            + sofa.related_to(r).mean(
-                lambda s: (
-                    s.distance(r, cu.walltags).hinge(0.08, 0.22).minimize(weight=3)
-                    + cl.angle_alignment_cost(s, r, cu.walltags).minimize(weight=1)
-                    + s.distance(doors.related_to(r)).minimize(weight=10)
-                    + s.distance(dental_unit.related_to(r))
-                    .hinge(3.0, 5.8)
-                    .maximize(weight=7)
-                )
-            )
-            + lounge_table.related_to(r).mean(
-                lambda t: (
-                    cl.angle_alignment_cost(t, r, cu.walltags).minimize(weight=1)
-                    + t.distance(sofa.related_to(r)).hinge(0.6, 1.6).maximize(weight=3)
-                    + t.distance(doors.related_to(r)).minimize(weight=7)
-                    + t.distance(dental_unit.related_to(r))
-                    .hinge(2.8, 5.2)
+                    .hinge(1.0, 2.2)
                     .maximize(weight=5)
                 )
             )
             + cabinet.related_to(r).mean(
                 lambda c: (
                     c.distance(r, cu.walltags).hinge(0.08, 0.22).minimize(weight=4)
-                    + c.distance(doors.related_to(r)).hinge(1.2, 3.8).maximize(weight=3)
+                    + c.distance(doors.related_to(r)).hinge(0.8, 2.0).maximize(weight=2)
                     + c.distance(dental_unit.related_to(r))
-                    .hinge(1.1, 2.6)
+                    .hinge(1.0, 2.2)
                     .maximize(weight=4)
-                    + c.distance(sofa.related_to(r)).hinge(1.2, 3.0).maximize(weight=3)
                 )
             )
             + wall_table.related_to(r).mean(
                 lambda t: (
                     t.distance(r, cu.walltags).hinge(0.08, 0.22).minimize(weight=5)
-                    + cl.angle_alignment_cost(t, r, cu.walltags).minimize(weight=1)
+                    + cl.angle_alignment_cost(t, r, cu.walltags).minimize(weight=2)
                     + cl.angle_alignment_cost(t, wall_table.related_to(r)).minimize(
-                        weight=4
+                        weight=5
                     )
                     + cl.focus_score(t, dental_unit.related_to(r)).minimize(weight=7)
                     + t.distance(wall_table.related_to(r))
-                    .hinge(0.2, 0.8)
-                    .maximize(weight=4)
-                    + t.distance(doors.related_to(r)).hinge(1.5, 4.0).maximize(weight=4)
-                    + t.distance(sofa.related_to(r)).hinge(1.4, 3.2).maximize(weight=4)
-                    + t.distance(dental_unit.related_to(r))
-                    .hinge(0.8, 1.8)
+                    .hinge(0.12, 0.45)
                     .maximize(weight=6)
+                    + t.distance(doors.related_to(r)).hinge(0.8, 1.8).maximize(weight=2)
+                    + t.distance(dental_unit.related_to(r))
+                    .hinge(0.7, 1.4)
+                    .maximize(weight=7)
                 )
             )
         )

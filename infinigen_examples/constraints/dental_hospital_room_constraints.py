@@ -30,6 +30,8 @@ def dental_hospital_room_constraints():
             Semantics.HospitalReception,
             Semantics.HospitalClinic,
             Semantics.HospitalVIPClinic,
+            Semantics.HospitalVIPLounge,
+            Semantics.HospitalVIPTreatment,
             Semantics.HospitalCorridor,
             Semantics.HospitalTreatmentRoom,
             Semantics.HospitalExaminationRoom,

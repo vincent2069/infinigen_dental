@@ -28,6 +28,8 @@ room_types = {
     t.Semantics.HospitalReception,
     t.Semantics.HospitalClinic,
     t.Semantics.HospitalVIPClinic,
+    t.Semantics.HospitalVIPLounge,
+    t.Semantics.HospitalVIPTreatment,
     t.Semantics.HospitalCorridor,
     t.Semantics.HospitalTreatmentRoom,
     t.Semantics.HospitalExaminationRoom,

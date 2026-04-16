@@ -284,6 +284,55 @@ def dental_hospital_floorplan(
                 return support_room_width, treatment_depth
             raise ValueError(f"Unhandled room semantic {semantic}")
 
+        def add_vip_suite(
+            suite_id: int,
+            x0: float,
+            x1: float,
+            y0: float,
+            y1: float,
+            prefix: str,
+            idx: int,
+            corridor_door_y: float,
+            window_y: float | None = None,
+        ):
+            total_width = x1 - x0
+            lounge_width = float(np.clip(total_width * 0.38, 1.85, 2.35))
+            lounge_width = min(lounge_width, total_width - 2.3)
+            split_x = x0 + lounge_width
+
+            lounge_name = room_name(Semantics.HospitalVIPLounge, 0, suite_id)
+            treatment_name = room_name(Semantics.HospitalVIPTreatment, 0, suite_id)
+
+            rooms[lounge_name] = {"shape": shapely.box(x0, y0, split_x, y1)}
+            rooms[treatment_name] = {"shape": shapely.box(split_x, y0, x1, y1)}
+
+            doors[f"door_{prefix}_{idx}_vip_lounge"] = {
+                "shape": _horizontal_segment_biased(
+                    x0,
+                    split_x,
+                    corridor_door_y,
+                    interior_door_width,
+                    side="start",
+                ),
+            }
+            doors[f"door_{prefix}_{idx}_vip_internal"] = {
+                "shape": _vertical_segment(
+                    y0,
+                    y1,
+                    split_x,
+                    interior_door_width,
+                ),
+            }
+
+            if window_y is not None:
+                add_room_windows(f"window_{prefix}_{idx}_vip_lounge", x0, split_x, window_y)
+                add_room_windows(
+                    f"window_{prefix}_{idx}_vip_treatment",
+                    split_x,
+                    x1,
+                    window_y,
+                )
+
         def add_room_sequence(
             room_types: list[Semantics],
             x_start: float,
@@ -320,19 +369,30 @@ def dental_hospital_floorplan(
                     door_y = corridor_y0
                     window_y = corridor_y0 - depth
 
-                rooms[name] = {"shape": shapely.box(x0, y0, x1, y1)}
-                doors[f"door_{prefix}_{i}"] = {
-                    "shape": _horizontal_segment_biased(
+                if semantic == Semantics.HospitalVIPClinic:
+                    add_vip_suite(
+                        room_id,
                         x0,
                         x1,
+                        y0,
+                        y1,
+                        prefix,
+                        i,
                         door_y,
-                        interior_door_width,
-                        side="start"
-                        if semantic == Semantics.HospitalVIPClinic
-                        else "center",
-                    ),
-                }
-                add_room_windows(f"window_{prefix}_{i}", x0, x1, window_y)
+                        window_y,
+                    )
+                else:
+                    rooms[name] = {"shape": shapely.box(x0, y0, x1, y1)}
+                    doors[f"door_{prefix}_{i}"] = {
+                        "shape": _horizontal_segment_biased(
+                            x0,
+                            x1,
+                            door_y,
+                            interior_door_width,
+                            side="center",
+                        ),
+                    }
+                    add_room_windows(f"window_{prefix}_{i}", x0, x1, window_y)
                 x_cursor = x1
             return x_cursor
 
@@ -377,18 +437,28 @@ def dental_hospital_floorplan(
                     door_y = band_y0
 
                 name = room_name(semantic, 0, room_id)
-                rooms[name] = {"shape": shapely.box(x0, y0, x1, y1)}
-                doors[f"door_{prefix}_{i}"] = {
-                    "shape": _horizontal_segment_biased(
+                if semantic == Semantics.HospitalVIPClinic:
+                    add_vip_suite(
+                        room_id,
                         x0,
                         x1,
+                        y0,
+                        y1,
+                        prefix,
+                        i,
                         door_y,
-                        interior_door_width,
-                        side="start"
-                        if semantic == Semantics.HospitalVIPClinic
-                        else "center",
-                    ),
-                }
+                    )
+                else:
+                    rooms[name] = {"shape": shapely.box(x0, y0, x1, y1)}
+                    doors[f"door_{prefix}_{i}"] = {
+                        "shape": _horizontal_segment_biased(
+                            x0,
+                            x1,
+                            door_y,
+                            interior_door_width,
+                            side="center",
+                        ),
+                    }
                 x_cursor = x1
             return x_cursor
 
