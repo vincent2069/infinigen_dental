@@ -244,6 +244,14 @@ def dental_hospital_floorplan(
                 "shape": _horizontal_segment(x0, x1, y, window_width),
             }
 
+        def add_room_windows_vertical(prefix: str, y0: float, y1: float, x: float):
+            if not add_exterior_windows:
+                return
+            window_width = max(1.5, min((y1 - y0) * 0.4, 3.5))
+            windows[prefix] = {
+                "shape": _vertical_segment(y0, y1, x, window_width),
+            }
+
         def room_dims(semantic: Semantics) -> tuple[float, float]:
             if semantic == Semantics.HospitalVIPClinic:
                 return vip_clinic_width, vip_clinic_depth
@@ -433,12 +441,12 @@ def dental_hospital_floorplan(
                 ),
             }
 
-            add_room_windows("window_waiting", 0, waiting_width, -waiting_depth)
-            add_room_windows(
+            add_room_windows_vertical("window_waiting", -waiting_depth, 0, 0)
+            add_room_windows_vertical(
                 "window_reception",
-                waiting_width,
-                lobby_width,
                 -reception_depth,
+                0,
+                lobby_width,
             )
 
             clinic_start_x = lobby_width + front_buffer_length
@@ -637,7 +645,7 @@ def dental_hospital_floorplan(
                             public_zone_open_width,
                         ),
                     }
-                    add_room_windows("window_waiting", 0, waiting_width, public_y0)
+                    add_room_windows_vertical("window_waiting", public_y0, public_y1, 0)
                     add_room_windows(
                         "window_reception",
                         reception_x0,
@@ -827,7 +835,7 @@ def dental_hospital_floorplan(
                             public_zone_open_width,
                         ),
                     }
-                    add_room_windows("window_waiting", 0, waiting_width, public_y0)
+                    add_room_windows_vertical("window_waiting", public_y0, public_y1, 0)
                     add_room_windows(
                         "window_reception",
                         reception_x0,
@@ -965,8 +973,11 @@ def dental_hospital_floorplan(
                 public_y0 = -bottom_depth
                 public_y1 = corridor_width + top_depth
                 waiting_y0 = -min(waiting_depth, bottom_depth)
-                waiting_y1 = 0.0
-                reception_y0 = 0.0
+                reception_extension = float(
+                    np.clip(reception_depth - corridor_width, 1.2, 1.8)
+                )
+                waiting_y1 = -reception_extension
+                reception_y0 = waiting_y1
                 reception_y1 = corridor_width
 
                 rooms[waiting_name] = {
@@ -996,7 +1007,9 @@ def dental_hospital_floorplan(
                         ]
                     ),
                 }
-                add_room_windows("window_waiting", 0, public_block_width, waiting_y0)
+                add_room_windows_vertical(
+                    "window_waiting", waiting_y0, waiting_y1, 0
+                )
                 add_room_windows("window_reception", 0, public_block_width, reception_y1)
 
                 upper_width = sequence_width(upper_types)

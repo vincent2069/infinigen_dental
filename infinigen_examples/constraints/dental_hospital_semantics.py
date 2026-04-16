@@ -11,6 +11,22 @@ from infinigen.core.tags import Semantics
 StaticWashbarFactory = static_assets.static_category_factory(
     "infinigen/assets/static_assets/source/Washbar",
     extensions=("fbx",),
+    filenames=("washbar1.fbx",),
+)
+StaticDeskTableFactory = static_assets.static_category_factory(
+    "infinigen/assets/static_assets/source/Table",
+    extensions=("fbx",),
+    filenames=("table4.fbx",),
+)
+StaticLoungeTableFactory = static_assets.static_category_factory(
+    "infinigen/assets/static_assets/source/Rectangle",
+    extensions=("fbx",),
+    filenames=("rectangletable1.fbx",),
+)
+StaticVipSofaFactory = static_assets.static_category_factory(
+    "infinigen/assets/static_assets/source/Sofa",
+    extensions=("fbx",),
+    filenames=("sofa2.fbx",),
 )
 
 
@@ -29,12 +45,12 @@ def dental_hospital_asset_usage():
     seating_factories = {
         static_assets.StaticBenchFactory,
         static_assets.StaticChairFactory,
-        static_assets.StaticSofaFactory,
+        StaticVipSofaFactory,
         static_assets.StaticInternchairFactory,
     }
     table_factories = {
-        static_assets.StaticTableFactory,
-        static_assets.StaticRectangleFactory,
+        StaticDeskTableFactory,
+        StaticLoungeTableFactory,
         static_assets.StaticFronttableFactory,
     }
     storage_factories = {
@@ -57,7 +73,7 @@ def dental_hospital_asset_usage():
     used_as = {
         Semantics.Seating: seating_factories,
         Semantics.LoungeSeating: {
-            static_assets.StaticSofaFactory,
+            StaticVipSofaFactory,
             static_assets.StaticChairFactory,
         },
         Semantics.Table: table_factories,

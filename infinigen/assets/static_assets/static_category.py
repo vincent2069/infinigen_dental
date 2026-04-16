@@ -6,12 +6,19 @@
 
 import os
 import random
+from pathlib import Path
 
 import bpy
+import numpy as np
 
+from infinigen.assets.utils.bbox_from_mesh import box_from_corners
 from infinigen.assets.static_assets.base import StaticAssetFactory
 from infinigen.core.tagging import tag_support_surfaces
+from infinigen.core.util import blender as butil
 from infinigen.core.util.math import FixedSeed
+
+STATIC_ASSET_BBOX_CACHE = {}
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def static_category_factory(
@@ -22,6 +29,7 @@ def static_category_factory(
     z_dim: float = None,
     rotation_euler: tuple[float] = None,
     extensions: tuple[str, ...] | None = None,
+    filenames: tuple[str, ...] | None = None,
 ) -> StaticAssetFactory:
     """
     Create a factory for external asset import.
@@ -34,9 +42,12 @@ def static_category_factory(
         def __init__(self, factory_seed, coarse=False):
             super().__init__(factory_seed, coarse)
             with FixedSeed(factory_seed):
-                self.path_to_assets = path_to_assets
+                resolved_asset_dir = Path(path_to_assets)
+                if not resolved_asset_dir.is_absolute():
+                    resolved_asset_dir = REPO_ROOT / resolved_asset_dir
+                self.path_to_assets = str(resolved_asset_dir)
                 self.tag_support = tag_support
-                self.asset_dir = path_to_assets
+                self.asset_dir = self.path_to_assets
                 self.x_dim, self.y_dim, self.z_dim = x_dim, y_dim, z_dim
                 self.rotation_euler = rotation_euler
                 self.extensions = (
@@ -44,45 +55,96 @@ def static_category_factory(
                     if extensions is not None
                     else tuple(self.import_map.keys())
                 )
+                self.filenames = set(filenames) if filenames is not None else None
                 asset_files = [
                     f
                     for f in os.listdir(self.asset_dir)
                     if f.rsplit(".", 1)[-1].lower() in self.extensions
+                    and (self.filenames is None or f in self.filenames)
                 ]
                 if not asset_files or len(asset_files) == 0:
                     raise ValueError(
                         f"No valid asset files found in {self.asset_dir} "
-                        f"for extensions {self.extensions}"
+                        f"for extensions {self.extensions} "
+                        f"and filenames {sorted(self.filenames) if self.filenames is not None else 'ANY'}"
                     )
                 self.asset_file = random.choice(asset_files)
+
+        def _apply_scale(self, imported_obj: bpy.types.Object):
+            if (
+                self.x_dim is None
+                and self.y_dim is None
+                and self.z_dim is None
+            ):
+                return
+
+            if (
+                sum(
+                    [
+                        1
+                        for dim in [self.x_dim, self.y_dim, self.z_dim]
+                        if dim is not None
+                    ]
+                )
+                != 1
+            ):
+                raise ValueError("Only one dimension can be provided")
+
+            if self.x_dim is not None:
+                denom = imported_obj.dimensions[0]
+                target = self.x_dim
+            elif self.y_dim is not None:
+                denom = imported_obj.dimensions[1]
+                target = self.y_dim
+            else:
+                denom = imported_obj.dimensions[2]
+                target = self.z_dim
+            if abs(denom) < 1e-6:
+                raise ValueError(
+                    f"Imported asset {self.asset_file} has near-zero dimension {denom}"
+                )
+            scale = target / denom
+            imported_obj.scale = (scale, scale, scale)
+            butil.apply_transform(imported_obj, loc=False, rot=False, scale=True)
+
+        def _apply_rotation(self, imported_obj: bpy.types.Object):
+            if self.rotation_euler is None:
+                return
+            imported_obj.rotation_euler = self.rotation_euler
+            butil.apply_transform(imported_obj, loc=False, rot=True, scale=False)
+
+        def _bbox_cache_key(self):
+            return (
+                os.path.join(self.asset_dir, self.asset_file),
+                self.x_dim,
+                self.y_dim,
+                self.z_dim,
+                self.rotation_euler,
+            )
+
+        def _placeholder_bounds(self):
+            key = self._bbox_cache_key()
+            if key not in STATIC_ASSET_BBOX_CACHE:
+                imported_obj = self.import_file(key[0])
+                self._apply_scale(imported_obj)
+                self._apply_rotation(imported_obj)
+                bounds = np.array(imported_obj.bound_box, dtype=float)
+                STATIC_ASSET_BBOX_CACHE[key] = (
+                    bounds.min(axis=0),
+                    bounds.max(axis=0),
+                )
+                butil.delete(list(butil.iter_object_tree(imported_obj)))
+            return STATIC_ASSET_BBOX_CACHE[key]
+
+        def create_placeholder(self, **kwargs) -> bpy.types.Object:
+            min_corner, max_corner = self._placeholder_bounds()
+            return box_from_corners(min_corner, max_corner)
 
         def create_asset(self, **params) -> bpy.types.Object:
             file_path = os.path.join(self.asset_dir, self.asset_file)
             imported_obj = self.import_file(file_path)
-            if (
-                self.x_dim is not None
-                or self.y_dim is not None
-                or self.z_dim is not None
-            ):
-                # check only one dimension is provided
-                if (
-                    sum(
-                        [
-                            1
-                            for dim in [self.x_dim, self.y_dim, self.z_dim]
-                            if dim is not None
-                        ]
-                    )
-                    != 1
-                ):
-                    raise ValueError("Only one dimension can be provided")
-                if self.x_dim is not None:
-                    scale = self.x_dim / imported_obj.dimensions[0]
-                elif self.y_dim is not None:
-                    scale = self.y_dim / imported_obj.dimensions[1]
-                else:
-                    scale = self.z_dim / imported_obj.dimensions[2]
-                imported_obj.scale = (scale, scale, scale)
+            self._apply_scale(imported_obj)
+            self._apply_rotation(imported_obj)
             if self.tag_support:
                 tag_support_surfaces(imported_obj)
 
