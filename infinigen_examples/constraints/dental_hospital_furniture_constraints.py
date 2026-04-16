@@ -53,7 +53,7 @@ def dental_hospital_furniture_constraints():
     consultation_room = rooms[Semantics.HospitalExaminationRoom]
 
     casework_against_wall = cl.StableAgainst(cu.back, cu.walltags, margin=0.12)
-    frontdesk_against_wall = cl.StableAgainst(cu.back, cu.walltags, margin=0.18)
+    frontdesk_against_wall = cl.StableAgainst(cu.back, cu.walltags, margin=0.45)
 
     furniture = obj[Semantics.Furniture].related_to(rooms, cu.on_floor)
 
@@ -133,12 +133,15 @@ def dental_hospital_furniture_constraints():
         lambda r: (
             front_desk.related_to(r).mean(
                 lambda d: (
-                    d.distance(r, cu.walltags).hinge(0.1, 0.24).minimize(weight=10)
+                    d.distance(r, cu.walltags).hinge(0.35, 0.65).minimize(weight=10)
                     + cl.angle_alignment_cost(d, r, cu.walltags).minimize(weight=6)
-                    + cl.accessibility_cost(d, r, dist=1.15).minimize(weight=6)
-                    + d.distance(doors.related_to(r)).hinge(1.0, 3.2).maximize(weight=5)
-                    + d.distance(windows.related_to(r)).hinge(0.8, 2.5).maximize(weight=6)
-                    + d.distance(openings.related_to(r)).hinge(1.2, 3.0).maximize(weight=9)
+                    + cl.focus_score(d, openings.related_to(r)).minimize(weight=12)
+                    + cl.accessibility_cost(d, r, dist=1.0).minimize(weight=6)
+                    + d.distance(doors.related_to(r)).hinge(1.2, 3.0).maximize(weight=4)
+                    + d.distance(windows.related_to(r)).hinge(0.6, 1.8).maximize(weight=4)
+                    + d.distance(openings.related_to(r))
+                    .hinge(0.8, 1.8)
+                    .minimize(weight=10)
                 )
             )
             + staff_chair.related_to(r).mean(
@@ -160,9 +163,9 @@ def dental_hospital_furniture_constraints():
         lambda r: (
             dental_unit.related_to(r).count().equals(1)
             * washbar.related_to(r).count().equals(1)
-            * staff_chair.related_to(r).count().equals(1)
-            * cabinet.related_to(r).count().equals(1)
-            * wall_table.related_to(r).count().equals(0)
+            * staff_chair.related_to(r).count().in_range(1, 2)
+            * cabinet.related_to(r).count().in_range(0, 1)
+            * wall_table.related_to(r).count().in_range(1, 2)
         )
     )
     score_terms["clinic"] = clinic_room.mean(
@@ -173,7 +176,7 @@ def dental_hospital_furniture_constraints():
             .hinge(0.7, 1.6)
             .maximize(weight=4)
             + cl.angle_alignment_cost(dental_unit.related_to(r), r, cu.walltags).minimize(
-                weight=4
+                weight=7
             )
             + cl.accessibility_cost(dental_unit.related_to(r), r, dist=1.1).minimize(
                 weight=8
@@ -183,9 +186,14 @@ def dental_hospital_furniture_constraints():
             .hinge(1.0, 2.8)
             .maximize(weight=4)
             + staff_chair.related_to(r).mean(
-                lambda s: s.distance(dental_unit.related_to(r))
-                .hinge(0.45, 0.95)
-                .maximize(weight=6)
+                lambda s: (
+                    s.distance(dental_unit.related_to(r))
+                    .hinge(0.45, 0.95)
+                    .maximize(weight=5)
+                    + s.distance(wall_table.related_to(r))
+                    .hinge(0.35, 1.1)
+                    .maximize(weight=4)
+                )
             )
             + washbar.related_to(r).mean(
                 lambda s: (
@@ -206,6 +214,21 @@ def dental_hospital_furniture_constraints():
                     .maximize(weight=4)
                 )
             )
+            + wall_table.related_to(r).mean(
+                lambda t: (
+                    t.distance(r, cu.walltags).hinge(0.08, 0.22).minimize(weight=6)
+                    + cl.angle_alignment_cost(t, r, cu.walltags).minimize(weight=2)
+                    + cl.angle_alignment_cost(t, wall_table.related_to(r)).minimize(
+                        weight=4
+                    )
+                    + t.distance(wall_table.related_to(r))
+                    .hinge(0.2, 0.75)
+                    .maximize(weight=4)
+                    + t.distance(dental_unit.related_to(r))
+                    .hinge(0.8, 1.8)
+                    .maximize(weight=5)
+                )
+            )
         )
     )
 
@@ -217,9 +240,9 @@ def dental_hospital_furniture_constraints():
         lambda r: (
             dental_unit.related_to(r).count().equals(1)
             * washbar.related_to(r).count().equals(1)
-            * staff_chair.related_to(r).count().equals(1)
-            * cabinet.related_to(r).count().in_range(1, 2)
-            * wall_table.related_to(r).count().equals(1)
+            * staff_chair.related_to(r).count().in_range(1, 3)
+            * cabinet.related_to(r).count().in_range(0, 1)
+            * wall_table.related_to(r).count().in_range(1, 2)
             * sofa.related_to(r).count().equals(1)
             * lounge_table.related_to(r).count().equals(1)
             * chair.related_to(r).count().equals(0)
@@ -233,20 +256,23 @@ def dental_hospital_furniture_constraints():
             .hinge(0.7, 1.8)
             .maximize(weight=3)
             + cl.angle_alignment_cost(dental_unit.related_to(r), r, cu.walltags).minimize(
-                weight=4
+                weight=7
             )
             + cl.accessibility_cost(dental_unit.related_to(r), r, dist=1.1).minimize(
                 weight=8
             )
             + dental_unit.related_to(r)
             .distance(doors.related_to(r))
-            .hinge(1.8, 4.5)
-            .maximize(weight=8)
+            .hinge(2.3, 5.0)
+            .maximize(weight=12)
             + staff_chair.related_to(r).mean(
                 lambda s: (
                     s.distance(dental_unit.related_to(r))
                     .hinge(0.45, 1.0)
-                    .maximize(weight=5)
+                    .maximize(weight=4)
+                    + s.distance(wall_table.related_to(r))
+                    .hinge(0.35, 1.2)
+                    .maximize(weight=4)
                     + s.distance(doors.related_to(r)).hinge(1.0, 2.8).maximize(weight=2)
                 )
             )
@@ -264,7 +290,7 @@ def dental_hospital_furniture_constraints():
                 lambda s: (
                     s.distance(r, cu.walltags).hinge(0.08, 0.22).minimize(weight=3)
                     + cl.angle_alignment_cost(s, r, cu.walltags).minimize(weight=1)
-                    + s.distance(doors.related_to(r)).minimize(weight=6)
+                    + s.distance(doors.related_to(r)).minimize(weight=10)
                     + s.distance(dental_unit.related_to(r))
                     .hinge(3.0, 5.8)
                     .maximize(weight=7)
@@ -274,7 +300,7 @@ def dental_hospital_furniture_constraints():
                 lambda t: (
                     cl.angle_alignment_cost(t, r, cu.walltags).minimize(weight=1)
                     + t.distance(sofa.related_to(r)).hinge(0.6, 1.6).maximize(weight=3)
-                    + t.distance(doors.related_to(r)).minimize(weight=4)
+                    + t.distance(doors.related_to(r)).minimize(weight=7)
                     + t.distance(dental_unit.related_to(r))
                     .hinge(2.8, 5.2)
                     .maximize(weight=5)
@@ -294,11 +320,17 @@ def dental_hospital_furniture_constraints():
                 lambda t: (
                     t.distance(r, cu.walltags).hinge(0.08, 0.22).minimize(weight=5)
                     + cl.angle_alignment_cost(t, r, cu.walltags).minimize(weight=1)
+                    + cl.angle_alignment_cost(t, wall_table.related_to(r)).minimize(
+                        weight=4
+                    )
+                    + t.distance(wall_table.related_to(r))
+                    .hinge(0.2, 0.8)
+                    .maximize(weight=4)
                     + t.distance(doors.related_to(r)).hinge(1.5, 4.0).maximize(weight=4)
                     + t.distance(sofa.related_to(r)).hinge(1.4, 3.2).maximize(weight=4)
                     + t.distance(dental_unit.related_to(r))
-                    .hinge(0.9, 2.1)
-                    .maximize(weight=5)
+                    .hinge(0.8, 1.8)
+                    .maximize(weight=6)
                 )
             )
         )

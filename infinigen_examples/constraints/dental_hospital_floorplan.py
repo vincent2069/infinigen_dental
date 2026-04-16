@@ -96,6 +96,27 @@ def _horizontal_segment(x0: float, x1: float, y: float, width: float) -> LineStr
     return LineString([(cx - half, y), (cx + half, y)])
 
 
+def _horizontal_segment_biased(
+    x0: float,
+    x1: float,
+    y: float,
+    width: float,
+    side: str = "center",
+    inset: float = 0.35,
+) -> LineString:
+    span = max(1.2, min(width, x1 - x0 - 0.6))
+    span = min(span, x1 - x0 - 0.2)
+    if side == "start":
+        start = min(x0 + inset, x1 - span - 0.1)
+        start = max(start, x0 + 0.1)
+        return LineString([(start, y), (start + span, y)])
+    if side == "end":
+        end = max(x1 - inset, x0 + span + 0.1)
+        end = min(end, x1 - 0.1)
+        return LineString([(end - span, y), (end, y)])
+    return _horizontal_segment(x0, x1, y, width)
+
+
 def _vertical_segment(y0: float, y1: float, x: float, width: float) -> LineString:
     span = max(1.2, min(width, y1 - y0 - 0.6))
     span = min(span, y1 - y0 - 0.2)
@@ -301,7 +322,15 @@ def dental_hospital_floorplan(
 
                 rooms[name] = {"shape": shapely.box(x0, y0, x1, y1)}
                 doors[f"door_{prefix}_{i}"] = {
-                    "shape": _horizontal_segment(x0, x1, door_y, interior_door_width),
+                    "shape": _horizontal_segment_biased(
+                        x0,
+                        x1,
+                        door_y,
+                        interior_door_width,
+                        side="start"
+                        if semantic == Semantics.HospitalVIPClinic
+                        else "center",
+                    ),
                 }
                 add_room_windows(f"window_{prefix}_{i}", x0, x1, window_y)
                 x_cursor = x1
@@ -350,7 +379,15 @@ def dental_hospital_floorplan(
                 name = room_name(semantic, 0, room_id)
                 rooms[name] = {"shape": shapely.box(x0, y0, x1, y1)}
                 doors[f"door_{prefix}_{i}"] = {
-                    "shape": _horizontal_segment(x0, x1, door_y, interior_door_width),
+                    "shape": _horizontal_segment_biased(
+                        x0,
+                        x1,
+                        door_y,
+                        interior_door_width,
+                        side="start"
+                        if semantic == Semantics.HospitalVIPClinic
+                        else "center",
+                    ),
                 }
                 x_cursor = x1
             return x_cursor
@@ -941,7 +978,7 @@ def dental_hospital_floorplan(
                 public_block_width = min(
                     public_block_width,
                     max(
-                        7.2,
+                        6.4,
                         support_room_width + 1.2,
                         standard_clinic_width + 2.4,
                     ),
@@ -973,12 +1010,11 @@ def dental_hospital_floorplan(
                 public_y0 = -bottom_depth
                 public_y1 = corridor_width + top_depth
                 waiting_y0 = -min(waiting_depth, bottom_depth)
-                reception_extension = float(
-                    np.clip(reception_depth - corridor_width, 1.2, 1.8)
-                )
-                waiting_y1 = -reception_extension
-                reception_y0 = waiting_y1
-                reception_y1 = corridor_width
+                waiting_y1 = 0.0
+                reception_y0 = 0.0
+                reception_y1 = float(np.clip(corridor_width - 1.2, 2.1, 2.45))
+                corridor_front_y0 = reception_y1
+                corridor_front_y1 = corridor_width
 
                 rooms[waiting_name] = {
                     "shape": shapely.box(0, waiting_y0, public_block_width, waiting_y1),
@@ -1010,7 +1046,9 @@ def dental_hospital_floorplan(
                 add_room_windows_vertical(
                     "window_waiting", waiting_y0, waiting_y1, 0
                 )
-                add_room_windows("window_reception", 0, public_block_width, reception_y1)
+                add_room_windows_vertical(
+                    "window_reception", reception_y0, reception_y1, 0
+                )
 
                 upper_width = sequence_width(upper_types)
                 lower_width = sequence_width(lower_types)
@@ -1062,13 +1100,25 @@ def dental_hospital_floorplan(
                     width_overrides=lower_width_overrides,
                 )
 
-                corridor_shape = shapely.box(
-                    public_block_width,
-                    0,
-                    max(
-                        upper_end, lower_end, clinic_start_x + corridor_connector_length
-                    ),
-                    corridor_width,
+                corridor_shape = shapely.union_all(
+                    [
+                        shapely.box(
+                            public_block_width,
+                            0,
+                            max(
+                                upper_end,
+                                lower_end,
+                                clinic_start_x + corridor_connector_length,
+                            ),
+                            corridor_width,
+                        ),
+                        shapely.box(
+                            0,
+                            corridor_front_y0,
+                            public_block_width,
+                            corridor_front_y1,
+                        ),
+                    ]
                 )
 
         rooms[corridor_name] = {
