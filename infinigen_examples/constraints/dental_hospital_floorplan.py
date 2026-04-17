@@ -88,6 +88,31 @@ def _resolve_room_size(
     return resolved_width, resolved_depth
 
 
+def _resolve_corridor_width(
+    corridor_width: float | None,
+    corridor_width_min: float | None,
+    corridor_width_max: float | None,
+) -> float:
+    if corridor_width is not None:
+        resolved_width = float(corridor_width)
+    else:
+        low = 1.0 if corridor_width_min is None else float(corridor_width_min)
+        high = 1.5 if corridor_width_max is None else float(corridor_width_max)
+        if low <= 0 or high <= 0:
+            raise ValueError(
+                f"Corridor width bounds must be positive, got {corridor_width_min=}, {corridor_width_max=}"
+            )
+        if high < low:
+            raise ValueError(
+                f"corridor_width_max must be >= corridor_width_min, got {corridor_width_min=}, {corridor_width_max=}"
+            )
+        resolved_width = float(np.random.uniform(low, high))
+
+    if resolved_width <= 0:
+        raise ValueError(f"corridor_width must be positive, got {resolved_width}")
+    return resolved_width
+
+
 def _horizontal_segment(x0: float, x1: float, y: float, width: float) -> LineString:
     span = max(1.2, min(width, x1 - x0 - 0.6))
     span = min(span, x1 - x0 - 0.2)
@@ -130,7 +155,9 @@ def dental_hospital_floorplan(
     factory_seed: int,
     num_clinics: int = 12,
     vip_ratio: float = 0.25,
-    corridor_width: float = 3.6,
+    corridor_width: float | None = None,
+    corridor_width_min: float = 1.0,
+    corridor_width_max: float = 1.5,
     standard_clinic_width: float = 4.6,
     standard_clinic_depth: float = 5.0,
     standard_clinic_area: float | None = 23.0,
@@ -154,8 +181,10 @@ def dental_hospital_floorplan(
     entrance_width: float = 2.2,
     public_corridor_entry_count: int = 1,
     public_zone_open_width: float = 6.0,
-    multi_corridor_threshold: int = 22,
-    four_row_threshold: int = 28,
+    dual_corridor_threshold: int = 17,
+    triple_corridor_threshold: int = 27,
+    multi_corridor_threshold: int | None = None,
+    four_row_threshold: int | None = None,
     add_exterior_windows: bool = True,
     vip_cluster_side: str = "split",
     vip_at_far_end: bool = True,
@@ -167,10 +196,9 @@ def dental_hospital_floorplan(
     - ``rectangular``: default. A side public-zone block plus a main clinical
       trunk corridor. Waiting/reception stay visually open, then connect into
       the treatment corridor through one or two controlled entries. When the
-      clinic count is large, rectangular mode automatically switches to a
-      stacked dual-corridor variant so the clinic zone packs into three rows
-      instead of stretching into one long strip. At even larger scales it
-      upgrades again into a three-corridor / four-row clinic block.
+      clinic count exceeds 16, rectangular mode automatically switches to a
+      dual-corridor variant; when it exceeds 26, it upgrades again to a
+      triple-corridor / four-row clinic block.
     - ``t_shape``: public front zone -> short buffer/stem -> shared split -> upper/lower
       clinic wings.
     """
@@ -186,6 +214,11 @@ def dental_hospital_floorplan(
             standard_clinic_depth,
             standard_clinic_area,
             standard_clinic_aspect_ratio,
+        )
+        corridor_width = _resolve_corridor_width(
+            corridor_width,
+            corridor_width_min,
+            corridor_width_max,
         )
         vip_clinic_width, vip_clinic_depth = _resolve_room_size(
             vip_clinic_width,
@@ -645,11 +678,25 @@ def dental_hospital_floorplan(
             # So we keep the support pair at the front of the clinical band
             # instead of splitting standard clinics before/after it.
             public_block_width = lobby_width
-            multi_corridor_threshold = int(max(1, multi_corridor_threshold))
-            four_row_threshold = int(max(1, four_row_threshold))
-            use_four_row = num_clinics >= four_row_threshold
+            dual_corridor_threshold = int(
+                max(
+                    1,
+                    multi_corridor_threshold
+                    if multi_corridor_threshold is not None
+                    else dual_corridor_threshold,
+                )
+            )
+            triple_corridor_threshold = int(
+                max(
+                    dual_corridor_threshold + 1,
+                    four_row_threshold
+                    if four_row_threshold is not None
+                    else triple_corridor_threshold,
+                )
+            )
+            use_four_row = num_clinics >= triple_corridor_threshold
             use_multi_corridor = num_clinics >= min(
-                multi_corridor_threshold, four_row_threshold
+                dual_corridor_threshold, triple_corridor_threshold
             )
 
             reception_width_ratio = float(np.clip(reception_width_ratio, 0.18, 0.42))
@@ -680,14 +727,15 @@ def dental_hospital_floorplan(
                     elif vip_cluster_side == "bottom":
                         row_vips = [0, 0, 0, num_vip]
                     else:
-                        row_vips = [0, 0, num_vip, 0]
+                        split_top_vips, split_bottom_vips = _split_even(num_vip)
+                        row_vips = [split_top_vips, 0, 0, split_bottom_vips]
 
                     standard_row_counts = _allocate_standard_counts(
                         num_standard,
                         [
                             row_vips[0] * vip_clinic_width,
-                            2 * support_room_width,
-                            row_vips[2] * vip_clinic_width,
+                            support_room_width,
+                            support_room_width,
                             row_vips[3] * vip_clinic_width,
                         ],
                         standard_clinic_width,
@@ -697,16 +745,16 @@ def dental_hospital_floorplan(
                         standard_row_counts[0],
                         row_vips[0],
                     )
-                    upper_inner_types = [
-                        Semantics.HospitalExaminationRoom,
-                        Semantics.HospitalTreatmentRoom,
-                    ]
+                    upper_inner_types = [Semantics.HospitalExaminationRoom]
                     upper_inner_types.extend(
                         [Semantics.HospitalClinic] * standard_row_counts[1]
                     )
-                    lower_inner_types = build_linear_cluster(
-                        standard_row_counts[2],
-                        row_vips[2],
+                    lower_inner_types = [Semantics.HospitalTreatmentRoom]
+                    lower_inner_types.extend(
+                        build_linear_cluster(
+                            standard_row_counts[2],
+                            row_vips[2],
+                        )
                     )
                     bottom_outer_types = build_linear_cluster(
                         standard_row_counts[3],
@@ -723,6 +771,7 @@ def dental_hospital_floorplan(
                         standard_clinic_depth if standard_row_counts[1] > 0 else 0.0,
                     )
                     lower_inner_depth = max(
+                        treatment_depth,
                         standard_clinic_depth if standard_row_counts[2] > 0 else 0.0,
                         vip_clinic_depth if row_vips[2] > 0 else 0.0,
                     )
@@ -746,11 +795,11 @@ def dental_hospital_floorplan(
                     public_y1 = upper_corridor_y1 + top_depth
 
                     rooms[waiting_name] = {
-                        "shape": shapely.box(0, public_y0, waiting_width, public_y1),
+                        "shape": shapely.box(0, public_y0, waiting_width, 0.0),
                     }
                     rooms[reception_name] = {
                         "shape": shapely.box(
-                            reception_x0, public_y0, public_block_width, public_y1
+                            reception_x0, public_y0, public_block_width, 0.0
                         ),
                     }
 
@@ -762,53 +811,34 @@ def dental_hospital_floorplan(
                     opens["open_public_zone"] = {
                         "shape": _vertical_segment(
                             public_y0,
-                            public_y1,
+                            0.0,
                             waiting_width,
                             public_zone_open_width,
                         ),
                     }
-                    add_room_windows_vertical("window_waiting", public_y0, public_y1, 0)
+                    doors["door_waiting_to_hall"] = {
+                        "shape": _horizontal_segment(
+                            0,
+                            waiting_width,
+                            0.0,
+                            entrance_width,
+                        ),
+                    }
+                    doors["door_reception_to_hall"] = {
+                        "shape": _horizontal_segment(
+                            reception_x0,
+                            public_block_width,
+                            0.0,
+                            interior_door_width,
+                        ),
+                    }
+                    add_room_windows_vertical("window_waiting", public_y0, 0.0, 0)
                     add_room_windows(
                         "window_reception",
                         reception_x0,
                         public_block_width,
-                        public_y1,
+                        public_y0,
                     )
-
-                    if public_corridor_entry_count <= 1:
-                        doors["door_public_to_corridor_main"] = {
-                            "shape": _vertical_segment(
-                                lower_corridor_y0,
-                                upper_corridor_y1,
-                                public_block_width,
-                                entrance_width,
-                            ),
-                        }
-                    else:
-                        doors["door_public_to_lower_corridor"] = {
-                            "shape": LineString(
-                                [
-                                    (public_block_width, lower_corridor_y0 + 0.05),
-                                    (public_block_width, lower_corridor_y1 - 0.05),
-                                ]
-                            ),
-                        }
-                        doors["door_public_to_middle_corridor"] = {
-                            "shape": LineString(
-                                [
-                                    (public_block_width, middle_corridor_y0 + 0.05),
-                                    (public_block_width, middle_corridor_y1 - 0.05),
-                                ]
-                            ),
-                        }
-                        doors["door_public_to_upper_corridor"] = {
-                            "shape": LineString(
-                                [
-                                    (public_block_width, upper_corridor_y0 + 0.05),
-                                    (public_block_width, upper_corridor_y1 - 0.05),
-                                ]
-                            ),
-                        }
 
                     connector_x0 = public_block_width
                     connector_x1 = public_block_width + corridor_connector_length
@@ -849,6 +879,7 @@ def dental_hospital_floorplan(
 
                     corridor_shape = shapely.union_all(
                         [
+                            shapely.box(0, 0.0, public_block_width, public_y1),
                             shapely.box(
                                 connector_x0,
                                 lower_corridor_y0,
@@ -881,7 +912,8 @@ def dental_hospital_floorplan(
                     elif vip_cluster_side == "bottom":
                         top_vip_multi, bottom_vip_multi, middle_vip_multi = 0, num_vip, 0
                     else:
-                        top_vip_multi, bottom_vip_multi, middle_vip_multi = 0, 0, num_vip
+                        top_vip_multi, bottom_vip_multi = _split_even(num_vip)
+                        middle_vip_multi = 0
 
                     top_standard_multi, bottom_standard_multi = _balanced_standard_split(
                         num_standard,
@@ -936,11 +968,11 @@ def dental_hospital_floorplan(
                     public_y1 = upper_corridor_y1 + top_depth
 
                     rooms[waiting_name] = {
-                        "shape": shapely.box(0, public_y0, waiting_width, public_y1),
+                        "shape": shapely.box(0, public_y0, waiting_width, 0.0),
                     }
                     rooms[reception_name] = {
                         "shape": shapely.box(
-                            reception_x0, public_y0, public_block_width, public_y1
+                            reception_x0, public_y0, public_block_width, 0.0
                         ),
                     }
 
@@ -952,45 +984,34 @@ def dental_hospital_floorplan(
                     opens["open_public_zone"] = {
                         "shape": _vertical_segment(
                             public_y0,
-                            public_y1,
+                            0.0,
                             waiting_width,
                             public_zone_open_width,
                         ),
                     }
-                    add_room_windows_vertical("window_waiting", public_y0, public_y1, 0)
+                    doors["door_waiting_to_hall"] = {
+                        "shape": _horizontal_segment(
+                            0,
+                            waiting_width,
+                            0.0,
+                            entrance_width,
+                        ),
+                    }
+                    doors["door_reception_to_hall"] = {
+                        "shape": _horizontal_segment(
+                            reception_x0,
+                            public_block_width,
+                            0.0,
+                            interior_door_width,
+                        ),
+                    }
+                    add_room_windows_vertical("window_waiting", public_y0, 0.0, 0)
                     add_room_windows(
                         "window_reception",
                         reception_x0,
                         public_block_width,
-                        public_y1,
+                        public_y0,
                     )
-
-                    if public_corridor_entry_count <= 1:
-                        doors["door_public_to_corridor_main"] = {
-                            "shape": _vertical_segment(
-                                lower_corridor_y0,
-                                upper_corridor_y1,
-                                public_block_width,
-                                entrance_width,
-                            ),
-                        }
-                    else:
-                        doors["door_public_to_lower_corridor"] = {
-                            "shape": LineString(
-                                [
-                                    (public_block_width, lower_corridor_y0 + 0.05),
-                                    (public_block_width, lower_corridor_y1 - 0.05),
-                                ]
-                            ),
-                        }
-                        doors["door_public_to_upper_corridor"] = {
-                            "shape": LineString(
-                                [
-                                    (public_block_width, upper_corridor_y0 + 0.05),
-                                    (public_block_width, upper_corridor_y1 - 0.05),
-                                ]
-                            ),
-                        }
 
                     connector_x0 = public_block_width
                     connector_x1 = public_block_width + corridor_connector_length
@@ -1038,6 +1059,7 @@ def dental_hospital_floorplan(
 
                     corridor_shape = shapely.union_all(
                         [
+                            shapely.box(0, 0.0, public_block_width, public_y1),
                             shapely.box(
                                 connector_x0,
                                 lower_corridor_y0,
@@ -1097,7 +1119,7 @@ def dental_hospital_floorplan(
                 waiting_y0 = -min(waiting_depth, bottom_depth)
                 waiting_y1 = 0.0
                 reception_y0 = 0.0
-                reception_y1 = float(np.clip(corridor_width - 1.2, 2.1, 2.45))
+                reception_y1 = float(max(corridor_width, 1.0))
                 corridor_front_y0 = reception_y1
                 corridor_front_y1 = corridor_width
 
@@ -1121,11 +1143,11 @@ def dental_hospital_floorplan(
                     ),
                 }
                 doors["door_public_to_corridor_main"] = {
-                    "shape": LineString(
-                        [
-                            (public_block_width, reception_y0 + 0.05),
-                            (public_block_width, reception_y1 - 0.05),
-                        ]
+                    "shape": _vertical_segment(
+                        reception_y0,
+                        min(reception_y1, corridor_width),
+                        public_block_width,
+                        entrance_width,
                     ),
                 }
                 add_room_windows_vertical(
@@ -1173,26 +1195,29 @@ def dental_hospital_floorplan(
                     width_overrides=lower_width_overrides,
                 )
 
-                corridor_shape = shapely.union_all(
-                    [
-                        shapely.box(
-                            public_block_width,
-                            0,
-                            max(
-                                upper_end,
-                                lower_end,
-                                clinic_start_x + corridor_connector_length,
-                            ),
-                            corridor_width,
+                corridor_geoms = [
+                    shapely.box(
+                        public_block_width,
+                        0,
+                        max(
+                            upper_end,
+                            lower_end,
+                            clinic_start_x + corridor_connector_length,
                         ),
+                        corridor_width,
+                    )
+                ]
+                if corridor_front_y1 - corridor_front_y0 > 1e-6:
+                    corridor_geoms.append(
                         shapely.box(
                             0,
                             corridor_front_y0,
                             public_block_width,
                             corridor_front_y1,
-                        ),
-                    ]
-                )
+                        )
+                    )
+
+                corridor_shape = shapely.union_all(corridor_geoms)
 
         rooms[corridor_name] = {
             "shape": corridor_shape,
