@@ -915,12 +915,17 @@ def dental_hospital_floorplan(
                         top_vip_multi, bottom_vip_multi = _split_even(num_vip)
                         middle_vip_multi = 0
 
-                    top_standard_multi, bottom_standard_multi = _balanced_standard_split(
-                        num_standard,
-                        top_vip_multi,
-                        bottom_vip_multi,
-                        standard_clinic_width,
-                        vip_clinic_width,
+                    top_standard_multi, middle_standard_multi, bottom_standard_multi = (
+                        _allocate_standard_counts(
+                            num_standard,
+                            [
+                                top_vip_multi * vip_clinic_width,
+                                2 * support_room_width
+                                + middle_vip_multi * vip_clinic_width,
+                                bottom_vip_multi * vip_clinic_width,
+                            ],
+                            standard_clinic_width,
+                        )
                     )
 
                     upper_types = build_linear_cluster(
@@ -936,6 +941,9 @@ def dental_hospital_floorplan(
                         Semantics.HospitalExaminationRoom,
                         Semantics.HospitalTreatmentRoom,
                     ]
+                    middle_types.extend(
+                        [Semantics.HospitalClinic] * middle_standard_multi
+                    )
                     if middle_vip_multi > 0:
                         vip_band = [Semantics.HospitalVIPClinic] * middle_vip_multi
                         if vip_at_far_end:
@@ -954,6 +962,7 @@ def dental_hospital_floorplan(
                     middle_band_depth = max(
                         examination_depth,
                         treatment_depth,
+                        standard_clinic_depth if middle_standard_multi > 0 else 0.0,
                         vip_clinic_depth if middle_vip_multi > 0 else 0.0,
                     )
 
@@ -1034,7 +1043,7 @@ def dental_hospital_floorplan(
                         prefix="rect_bottom",
                     )
 
-                    middle_attach_to_upper = sequence_width(upper_types) >= sequence_width(
+                    middle_attach_to_upper = sequence_width(upper_types) <= sequence_width(
                         lower_types
                     )
                     middle_end = add_room_band_sequence(
