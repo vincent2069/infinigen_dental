@@ -35,6 +35,76 @@ BAKE_TYPES = {
 SPECIAL_BAKE = {"METAL": "Metallic", "TRANSMISSION": "Transmission Weight"}
 ALL_BAKE = BAKE_TYPES | SPECIAL_BAKE
 
+DEFAULT_USD_PRESERVE_MATERIAL_DIR_TOKENS = (
+    "static_assets/source/dentalunit",
+    "static_assets/source/washbar",
+    "static_assets/source/cabinet",
+    "static_assets/source/fronttable",
+    "static_assets/source/bench",
+    "static_assets/source/chair",
+    "static_assets/source/internchair",
+    "static_assets/source/table",
+    "static_assets/source/rectangle",
+    "static_assets/source/sofa",
+)
+
+DEFAULT_USD_PRESERVE_MATERIAL_NAME_TOKENS = (
+    "dentalchair",
+    "washbar",
+    "cabinet",
+    "fronttable",
+    "internchair",
+    "bench1",
+    "chair1",
+    "table1",
+    "table2",
+    "table3",
+    "table4",
+    "rectangletable",
+    "sofa",
+)
+
+
+def _normalize_tokens(tokens):
+    if tokens is None:
+        return ()
+    return tuple(str(t).lower() for t in tokens if t is not None and str(t) != "")
+
+
+def should_preserve_original_materials(
+    obj: bpy.types.Object,
+    export_usd: bool,
+    preserve_material_dir_tokens=None,
+    preserve_material_name_tokens=None,
+):
+    if not export_usd or obj.type != "MESH":
+        return False
+
+    dir_tokens = _normalize_tokens(
+        DEFAULT_USD_PRESERVE_MATERIAL_DIR_TOKENS
+        if preserve_material_dir_tokens is None
+        else preserve_material_dir_tokens
+    )
+    name_tokens = _normalize_tokens(
+        DEFAULT_USD_PRESERVE_MATERIAL_NAME_TOKENS
+        if preserve_material_name_tokens is None
+        else preserve_material_name_tokens
+    )
+
+    asset_dir = str(obj.get("infinigen_static_asset_dir", "")).lower()
+    asset_file = str(obj.get("infinigen_static_asset_file", "")).lower()
+    object_name = obj.name.lower()
+    material_names = " ".join(
+        slot.material.name.lower()
+        for slot in obj.material_slots
+        if slot.material is not None
+    )
+    haystacks = (asset_dir, asset_file, object_name, material_names)
+
+    return any(token in hay for token in dir_tokens for hay in haystacks) or any(
+        token in hay for token in name_tokens for hay in haystacks
+    )
+
 
 def apply_all_modifiers(obj):
     for mod in obj.modifiers:
@@ -778,7 +848,14 @@ def bake_object(obj, dest, img_size, export_usd, export_name=None):
         apply_baked_tex(obj, paramDict)
 
 
-def bake_scene(folderPath: Path, image_res, vertex_colors, export_usd):
+def bake_scene(
+    folderPath: Path,
+    image_res,
+    vertex_colors,
+    export_usd,
+    preserve_material_dir_tokens=None,
+    preserve_material_name_tokens=None,
+):
     for obj in bpy.data.objects:
         logging.info("---------------------------")
         logging.info(obj.name)
@@ -791,6 +868,15 @@ def bake_scene(folderPath: Path, image_res, vertex_colors, export_usd):
             continue
 
         if format == "stl":
+            continue
+
+        if should_preserve_original_materials(
+            obj,
+            export_usd,
+            preserve_material_dir_tokens=preserve_material_dir_tokens,
+            preserve_material_name_tokens=preserve_material_name_tokens,
+        ):
+            logging.info(f"Preserving original materials on {obj.name}, skipping bake")
             continue
 
         obj.hide_render = False
@@ -885,6 +971,8 @@ def export_single_obj(
     format="usdc",
     image_res=1024,
     vertex_colors=False,
+    preserve_material_dir_tokens=None,
+    preserve_material_name_tokens=None,
 ):
     export_usd = format in ["usda", "usdc"]
 
@@ -919,11 +1007,21 @@ def export_single_obj(
         if vertex_colors:
             bakeVertexColors(obj)
         else:
-            obj.hide_render = False
-            obj.hide_viewport = False
-            bake_object(obj, export_folder / "textures", image_res, export_usd)
-            obj.hide_render = True
-            obj.hide_viewport = True
+            if should_preserve_original_materials(
+                obj,
+                export_usd,
+                preserve_material_dir_tokens=preserve_material_dir_tokens,
+                preserve_material_name_tokens=preserve_material_name_tokens,
+            ):
+                logging.info(
+                    f"Preserving original materials on {obj.name}, skipping bake"
+                )
+            else:
+                obj.hide_render = False
+                obj.hide_viewport = False
+                bake_object(obj, export_folder / "textures", image_res, export_usd)
+                obj.hide_render = True
+                obj.hide_viewport = True
 
     for collection, status in collection_views.items():
         collection.hide_render = status
@@ -968,6 +1066,8 @@ def export_sim_ready(
     collision_only: bool = False,
     separate_asset_dirs: bool = True,
     zaxis: np.array = np.array([0, 0, 1]),
+    preserve_material_dir_tokens=None,
+    preserve_material_name_tokens=None,
 ) -> Dict[str, List[Path]]:
     """
     Exports both the visual and collision assets for a geometry.
@@ -1007,11 +1107,19 @@ def export_sim_ready(
     # export the textures
     if not skipBake(obj):
         texture_export_folder.mkdir(parents=True, exist_ok=True)
-        obj.hide_render = False
-        obj.hide_viewport = False
-        bake_object(obj, texture_export_folder, image_res, False, export_name)
-        obj.hide_render = True
-        obj.hide_viewport = True
+        if should_preserve_original_materials(
+            obj,
+            False,
+            preserve_material_dir_tokens=preserve_material_dir_tokens,
+            preserve_material_name_tokens=preserve_material_name_tokens,
+        ):
+            logging.info(f"Preserving original materials on {obj.name}, skipping bake")
+        else:
+            obj.hide_render = False
+            obj.hide_viewport = False
+            bake_object(obj, texture_export_folder, image_res, False, export_name)
+            obj.hide_render = True
+            obj.hide_viewport = True
 
     for collection, status in collection_views.items():
         collection.hide_render = status
@@ -1141,6 +1249,8 @@ def export_curr_scene(
     omniverse_export=False,
     pipeline_folder=None,
     task_uniqname=None,
+    preserve_material_dir_tokens=DEFAULT_USD_PRESERVE_MATERIAL_DIR_TOKENS,
+    preserve_material_name_tokens=DEFAULT_USD_PRESERVE_MATERIAL_NAME_TOKENS,
 ) -> Path:
     export_usd = format in ["usda", "usdc"]
 
@@ -1201,6 +1311,8 @@ def export_curr_scene(
         image_res=image_res,
         vertex_colors=vertex_colors,
         export_usd=export_usd,
+        preserve_material_dir_tokens=preserve_material_dir_tokens,
+        preserve_material_name_tokens=preserve_material_name_tokens,
     )
 
     for collection, status in collection_views.items():

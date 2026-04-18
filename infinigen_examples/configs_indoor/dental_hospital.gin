@@ -51,6 +51,10 @@ dental_hospital_floorplan.corridor_connector_length = 4.0
 dental_hospital_floorplan.examination_depth = 4.2
 dental_hospital_floorplan.treatment_depth = 4.2
 
+# Keep wall / floor finish visually consistent across the whole hospital.
+compose_dental_hospital.uniform_wall_material = True
+compose_dental_hospital.uniform_floor_material = True
+
 # Solver configuration
 compose_dental_hospital.solve_steps_large = 320
 compose_dental_hospital.solve_steps_medium = 180

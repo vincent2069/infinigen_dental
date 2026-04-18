@@ -391,6 +391,42 @@ def compose_dental_hospital(output_folder: Path, scene_seed: int, **overrides):
         use_chance=False,
     )
 
+    def unify_surface_materials():
+        def unify_collection_materials(objs):
+            objs = [o for o in objs if o.type == "MESH"]
+            if len(objs) == 0:
+                return
+
+            ref_mat = None
+            for obj in objs:
+                for slot in obj.material_slots:
+                    if slot.material is not None:
+                        ref_mat = slot.material
+                        break
+                if ref_mat is not None:
+                    break
+
+            if ref_mat is None:
+                return
+
+            for obj in objs:
+                if len(obj.material_slots) == 0:
+                    obj.data.materials.append(ref_mat)
+                else:
+                    for slot in obj.material_slots:
+                        slot.material = ref_mat
+
+        if overrides.get("uniform_wall_material", True):
+            unify_collection_materials(list(rooms_split["wall"].objects))
+        if overrides.get("uniform_floor_material", True):
+            unify_collection_materials(list(rooms_split["floor"].objects))
+
+    p.run_stage(
+        "unify_surface_materials",
+        unify_surface_materials,
+        use_chance=False,
+    )
+
     state.to_json(output_folder / "solve_state.json")
 
     def turn_off_lights():

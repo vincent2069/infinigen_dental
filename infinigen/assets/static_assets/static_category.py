@@ -145,6 +145,8 @@ def static_category_factory(
             imported_obj = self.import_file(file_path)
             self._apply_scale(imported_obj)
             self._apply_rotation(imported_obj)
+            imported_obj["infinigen_static_asset_dir"] = self.asset_dir
+            imported_obj["infinigen_static_asset_file"] = self.asset_file
             if self.tag_support:
                 tag_support_surfaces(imported_obj)
 
