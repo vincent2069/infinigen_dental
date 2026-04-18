@@ -77,6 +77,19 @@ def get_cardinal_planes_bbox(vertices: np.ndarray):
 
 def get_axis(state: state_def.State, obj: bpy.types.Object, tag=t.Subpart.Front):
     a_front_planes = state.planes.get_tagged_planes(obj, tag)
+    if len(a_front_planes) == 0:
+        logging.warning(
+            f"{obj.name=} had no tagged planes for {tag=}, falling back to bbox axis"
+        )
+        if len(obj.data.vertices) == 0:
+            fallback_axis = obj.matrix_world.to_quaternion() @ Vector((1, 0, 0))
+            return obj.location.copy(), fallback_axis.normalized()
+
+        vertices = np.array(
+            [butil.global_vertex_coordinates(obj, v) for v in obj.data.vertices]
+        )
+        fallback_pt, fallback_axis = get_cardinal_planes_bbox(vertices)[0]
+        return fallback_pt, fallback_axis
     if len(a_front_planes) > 1:
         logging.warning(
             f"{obj.name=} had too many front planes ({len(a_front_planes)})"

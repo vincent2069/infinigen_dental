@@ -136,14 +136,30 @@ def stable_against(
     b_trimesh_mask = b_trimesh.submesh([np.where(mask)[0]], append=True)
 
     # Project mesh A onto the plane of mesh B
-    projected_a = trimesh.path.polygons.projected(a_trimesh, normal_b, origin_b)
-    projected_b = trimesh.path.polygons.projected(b_trimesh_mask, normal_b, origin_b)
+    try:
+        projected_a = trimesh.path.polygons.projected(a_trimesh, normal_b, origin_b)
+        projected_b = trimesh.path.polygons.projected(
+            b_trimesh_mask, normal_b, origin_b
+        )
+    except ValueError as exc:
+        logger.warning(
+            "stable_against projection failed for %s against %s: %s",
+            sa.obj.name,
+            sb.obj.name,
+            exc,
+        )
+        return False
     logger.debug(
         f"stable_against projecting along {normal_b} for parent_tags {relation.parent_tags}"
     )
 
     if projected_a is None or projected_b is None:
-        raise ValueError(f"Invalid {projected_a=} {projected_b=}")
+        logger.warning(
+            "stable_against got invalid projection for %s against %s",
+            sa.obj.name,
+            sb.obj.name,
+        )
+        return False
 
     if allow_overhangs:
         res = projected_a.overlaps(projected_b)

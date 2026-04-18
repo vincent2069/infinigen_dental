@@ -11,11 +11,12 @@ include 'infinigen_examples/configs_nature/base.gin'
 include 'infinigen_examples/configs_nature/performance/fast_terrain_assets.gin'
 
 # Large dental hospital layout
-# Default uses a more regular rectangular clinic block:
-# public front zone -> short transition buffer -> central support zone -> double-loaded clinic strip.
-# When the clinic count exceeds 16, rectangular mode automatically switches to
-# a dual-corridor stacked layout; when it exceeds 26, it upgrades again to a
-# three-corridor / four-row clinic block.
+# Default uses a regular rectangular clinic block:
+# public front zone -> transition buffer -> clinical block.
+# Clinic block rule:
+#   < 8 clinics   : 1 corridor / 2 rows
+#   8-15 clinics  : 2 corridors / 3 rows
+#   >= 16 clinics : 2 corridors / 4 rows
 dental_hospital_floorplan.num_clinics = 12
 dental_hospital_floorplan.vip_ratio = 0.25
 # Corridor width can either be fixed by setting corridor_width to a number, or
@@ -23,8 +24,9 @@ dental_hospital_floorplan.vip_ratio = 0.25
 dental_hospital_floorplan.corridor_width = None
 dental_hospital_floorplan.corridor_width_min = 1.0
 dental_hospital_floorplan.corridor_width_max = 1.5
-dental_hospital_floorplan.dual_corridor_threshold = 17
-dental_hospital_floorplan.triple_corridor_threshold = 27
+dental_hospital_floorplan.dual_corridor_threshold = 8
+dental_hospital_floorplan.triple_corridor_threshold = 16
+dental_hospital_floorplan.four_row_threshold = 16
 # Clinic size can be controlled either by width/depth or directly by area.
 # When *_clinic_area is set, width/depth are derived from *_clinic_aspect_ratio.
 # Standard clinics: about 16 sqm, keeps most rooms within 12-20 sqm.

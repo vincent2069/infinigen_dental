@@ -392,34 +392,211 @@ def compose_dental_hospital(output_folder: Path, scene_seed: int, **overrides):
     )
 
     def unify_surface_materials():
-        def unify_collection_materials(objs):
+        def assign_material(objs, material):
             objs = [o for o in objs if o.type == "MESH"]
             if len(objs) == 0:
                 return
 
-            ref_mat = None
-            for obj in objs:
-                for slot in obj.material_slots:
-                    if slot.material is not None:
-                        ref_mat = slot.material
-                        break
-                if ref_mat is not None:
-                    break
-
-            if ref_mat is None:
-                return
-
             for obj in objs:
                 if len(obj.material_slots) == 0:
-                    obj.data.materials.append(ref_mat)
+                    obj.data.materials.append(material)
                 else:
                     for slot in obj.material_slots:
-                        slot.material = ref_mat
+                        slot.material = material
+
+        def build_bright_tile_material():
+            name = "DentalHospital_BrightTile"
+            mat = bpy.data.materials.get(name)
+            if mat is None:
+                mat = bpy.data.materials.new(name=name)
+            mat.use_nodes = True
+            mat.cycles.displacement_method = "BUMP"
+            nodes = mat.node_tree.nodes
+            links = mat.node_tree.links
+            nodes.clear()
+
+            out = nodes.new("ShaderNodeOutputMaterial")
+            out.location = (900, 0)
+
+            bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+            bsdf.location = (650, 0)
+            bsdf.inputs["Roughness"].default_value = 0.18
+            bsdf.inputs["Coat Weight"].default_value = 0.25
+            bsdf.inputs["Coat Roughness"].default_value = 0.06
+            bsdf.inputs["IOR"].default_value = 1.45
+
+            texcoord = nodes.new("ShaderNodeTexCoord")
+            texcoord.location = (-1000, 0)
+
+            mapping = nodes.new("ShaderNodeMapping")
+            mapping.location = (-780, 0)
+            mapping.inputs["Scale"].default_value = (6.0, 9.0, 1.0)
+
+            brick = nodes.new("ShaderNodeTexBrick")
+            brick.location = (-520, 0)
+            brick.inputs["Scale"].default_value = 4.5
+            brick.inputs["Brick Width"].default_value = 0.42
+            brick.inputs["Row Height"].default_value = 0.32
+            brick.inputs["Mortar Size"].default_value = 0.028
+            brick.inputs["Mortar Smooth"].default_value = 0.02
+            brick.inputs["Color1"].default_value = (0.96, 0.97, 0.98, 1.0)
+            brick.inputs["Color2"].default_value = (0.91, 0.93, 0.95, 1.0)
+
+            noise = nodes.new("ShaderNodeTexNoise")
+            noise.location = (-520, -220)
+            noise.inputs["Scale"].default_value = 18.0
+            noise.inputs["Detail"].default_value = 10.0
+            noise.inputs["Roughness"].default_value = 0.45
+
+            noise_ramp = nodes.new("ShaderNodeValToRGB")
+            noise_ramp.location = (-290, -220)
+            noise_ramp.color_ramp.elements[0].position = 0.28
+            noise_ramp.color_ramp.elements[0].color = (0.92, 0.94, 0.96, 1.0)
+            noise_ramp.color_ramp.elements[1].position = 0.78
+            noise_ramp.color_ramp.elements[1].color = (1.00, 1.00, 1.00, 1.0)
+
+            grout_ramp = nodes.new("ShaderNodeValToRGB")
+            grout_ramp.location = (-290, 30)
+            grout_ramp.color_ramp.elements[0].position = 0.10
+            grout_ramp.color_ramp.elements[0].color = (0.82, 0.84, 0.86, 1.0)
+            grout_ramp.color_ramp.elements[1].position = 0.18
+            grout_ramp.color_ramp.elements[1].color = (0.95, 0.96, 0.97, 1.0)
+
+            tile_variation = nodes.new("ShaderNodeMixRGB")
+            tile_variation.location = (120, -80)
+            tile_variation.blend_type = "MULTIPLY"
+            tile_variation.inputs["Fac"].default_value = 0.18
+
+            tile_with_grout = nodes.new("ShaderNodeMixRGB")
+            tile_with_grout.location = (390, 0)
+            tile_with_grout.inputs["Color1"].default_value = (0.82, 0.84, 0.86, 1.0)
+
+            bump = nodes.new("ShaderNodeBump")
+            bump.location = (390, -220)
+            bump.inputs["Strength"].default_value = 0.03
+            bump.inputs["Distance"].default_value = 0.03
+
+            links.new(texcoord.outputs["Object"], mapping.inputs["Vector"])
+            links.new(mapping.outputs["Vector"], brick.inputs["Vector"])
+            links.new(mapping.outputs["Vector"], noise.inputs["Vector"])
+            links.new(noise.outputs["Fac"], noise_ramp.inputs["Fac"])
+            links.new(brick.outputs["Fac"], grout_ramp.inputs["Fac"])
+            links.new(brick.outputs["Color"], tile_variation.inputs["Color1"])
+            links.new(noise_ramp.outputs["Color"], tile_variation.inputs["Color2"])
+            links.new(brick.outputs["Fac"], tile_with_grout.inputs["Fac"])
+            links.new(grout_ramp.outputs["Color"], tile_with_grout.inputs["Color1"])
+            links.new(tile_variation.outputs["Color"], tile_with_grout.inputs["Color2"])
+            links.new(brick.outputs["Fac"], bump.inputs["Height"])
+            links.new(tile_with_grout.outputs["Color"], bsdf.inputs["Base Color"])
+            links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+            links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+
+            return mat
+
+        def build_light_wood_wall_material():
+            name = "DentalHospital_LightWoodWall"
+            mat = bpy.data.materials.get(name)
+            if mat is None:
+                mat = bpy.data.materials.new(name=name)
+            mat.use_nodes = True
+            mat.cycles.displacement_method = "BUMP"
+            nodes = mat.node_tree.nodes
+            links = mat.node_tree.links
+            nodes.clear()
+
+            out = nodes.new("ShaderNodeOutputMaterial")
+            out.location = (900, 0)
+
+            bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+            bsdf.location = (650, 0)
+            bsdf.inputs["Roughness"].default_value = 0.52
+            bsdf.inputs["Sheen Weight"].default_value = 0.08
+
+            texcoord = nodes.new("ShaderNodeTexCoord")
+            texcoord.location = (-1100, 0)
+
+            mapping = nodes.new("ShaderNodeMapping")
+            mapping.location = (-860, 0)
+            mapping.inputs["Scale"].default_value = (2.8, 0.42, 1.0)
+
+            grain_wave = nodes.new("ShaderNodeTexWave")
+            grain_wave.location = (-620, -120)
+            grain_wave.wave_type = "BANDS"
+            grain_wave.bands_direction = "Y"
+            grain_wave.inputs["Scale"].default_value = 22.0
+            grain_wave.inputs["Distortion"].default_value = 7.0
+            grain_wave.inputs["Detail"].default_value = 6.0
+            grain_wave.inputs["Detail Scale"].default_value = 1.2
+            grain_wave.inputs["Detail Roughness"].default_value = 0.45
+
+            seam_brick = nodes.new("ShaderNodeTexBrick")
+            seam_brick.location = (-620, 130)
+            seam_brick.inputs["Scale"].default_value = 2.1
+            seam_brick.inputs["Brick Width"].default_value = 0.92
+            seam_brick.inputs["Row Height"].default_value = 0.16
+            seam_brick.inputs["Mortar Size"].default_value = 0.012
+            seam_brick.inputs["Mortar Smooth"].default_value = 0.04
+            seam_brick.inputs["Color1"].default_value = (0.89, 0.79, 0.62, 1.0)
+            seam_brick.inputs["Color2"].default_value = (0.94, 0.85, 0.68, 1.0)
+
+            noise = nodes.new("ShaderNodeTexNoise")
+            noise.location = (-620, -330)
+            noise.inputs["Scale"].default_value = 9.0
+            noise.inputs["Detail"].default_value = 9.0
+            noise.inputs["Roughness"].default_value = 0.42
+
+            grain_ramp = nodes.new("ShaderNodeValToRGB")
+            grain_ramp.location = (-360, -120)
+            grain_ramp.color_ramp.elements[0].position = 0.30
+            grain_ramp.color_ramp.elements[0].color = (0.88, 0.78, 0.60, 1.0)
+            grain_ramp.color_ramp.elements[1].position = 0.78
+            grain_ramp.color_ramp.elements[1].color = (0.97, 0.90, 0.75, 1.0)
+
+            noise_ramp = nodes.new("ShaderNodeValToRGB")
+            noise_ramp.location = (-360, -330)
+            noise_ramp.color_ramp.elements[0].position = 0.26
+            noise_ramp.color_ramp.elements[0].color = (0.95, 0.88, 0.74, 1.0)
+            noise_ramp.color_ramp.elements[1].position = 0.82
+            noise_ramp.color_ramp.elements[1].color = (1.00, 0.96, 0.86, 1.0)
+
+            wood_mix = nodes.new("ShaderNodeMixRGB")
+            wood_mix.location = (80, -40)
+            wood_mix.blend_type = "MULTIPLY"
+            wood_mix.inputs["Fac"].default_value = 0.22
+
+            seam_mix = nodes.new("ShaderNodeMixRGB")
+            seam_mix.location = (360, 0)
+
+            bump = nodes.new("ShaderNodeBump")
+            bump.location = (360, -210)
+            bump.inputs["Strength"].default_value = 0.06
+            bump.inputs["Distance"].default_value = 0.03
+
+            links.new(texcoord.outputs["Object"], mapping.inputs["Vector"])
+            links.new(mapping.outputs["Vector"], grain_wave.inputs["Vector"])
+            links.new(mapping.outputs["Vector"], seam_brick.inputs["Vector"])
+            links.new(mapping.outputs["Vector"], noise.inputs["Vector"])
+            links.new(grain_wave.outputs["Fac"], grain_ramp.inputs["Fac"])
+            links.new(noise.outputs["Fac"], noise_ramp.inputs["Fac"])
+            links.new(grain_ramp.outputs["Color"], wood_mix.inputs["Color1"])
+            links.new(noise_ramp.outputs["Color"], wood_mix.inputs["Color2"])
+            links.new(seam_brick.outputs["Fac"], seam_mix.inputs["Fac"])
+            links.new(seam_brick.outputs["Color"], seam_mix.inputs["Color1"])
+            links.new(wood_mix.outputs["Color"], seam_mix.inputs["Color2"])
+            links.new(grain_wave.outputs["Fac"], bump.inputs["Height"])
+            links.new(seam_mix.outputs["Color"], bsdf.inputs["Base Color"])
+            links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+            links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+
+            return mat
+
+        floor_material = build_bright_tile_material()
+        wall_material = build_light_wood_wall_material()
 
         if overrides.get("uniform_wall_material", True):
-            unify_collection_materials(list(rooms_split["wall"].objects))
+            assign_material(list(rooms_split["wall"].objects), wall_material)
         if overrides.get("uniform_floor_material", True):
-            unify_collection_materials(list(rooms_split["floor"].objects))
+            assign_material(list(rooms_split["floor"].objects), floor_material)
 
     p.run_stage(
         "unify_surface_materials",
