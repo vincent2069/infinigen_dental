@@ -29,12 +29,12 @@ dental_hospital_floorplan.triple_corridor_threshold = 16
 dental_hospital_floorplan.four_row_threshold = 16
 # Clinic size can be controlled either by width/depth or directly by area.
 # When *_clinic_area is set, width/depth are derived from *_clinic_aspect_ratio.
-# Standard clinics: about 16 sqm, keeps most rooms within 12-20 sqm.
-dental_hospital_floorplan.standard_clinic_area = 16.0
+# Standard clinics: about 25 sqm.
+dental_hospital_floorplan.standard_clinic_area = 25.0
 dental_hospital_floorplan.standard_clinic_aspect_ratio = 0.8
-# VIP clinics: about 24 sqm, but extend mainly along corridor direction instead
+# VIP clinics: about 35 sqm, but extend mainly along corridor direction instead
 # of becoming deeper, so the overall outline stays regular/rectangular.
-dental_hospital_floorplan.vip_clinic_area = 24.0
+dental_hospital_floorplan.vip_clinic_area = 35.0
 dental_hospital_floorplan.vip_clinic_aspect_ratio = 1.2
 dental_hospital_floorplan.vip_cluster_side = 'top'
 dental_hospital_floorplan.plan_form = 'rectangular'
